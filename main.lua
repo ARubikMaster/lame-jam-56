@@ -2,7 +2,7 @@ function love.load()
     mapData = {{1,1,1,1,1,1,1},{1,1,1,0,0,0,1},{1,1,1,0,1,0,1},{1,0,0,0,0,0,1},{1,0,1,0,1,1,1},{1,0,0,0,1,1,1},{1,1,1,1,1,1,1}} -- Temporary values for the map
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png")} -- add wall textures here
     playerX,playerY = 0,0 -- player variables
-    scaleX,scaleY = 1,1 -- scale values
+    scaleX,scaleY = 1,1 -- universal scale values
 end
 
 
