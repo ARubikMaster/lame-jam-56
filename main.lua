@@ -7,15 +7,21 @@ end
 
 
 
-
+function love.update()
+    if love.keyboard.isDown("right") then
+    playerX = playerX + 1
+    end
+end
 
 
 
 function love.draw()
+    local TileOffsetX = playerX % 16
+    local TileOffsetY = playerY % 16
     for y=1, #mapData do
         for x=1, #mapData do
-            if mapData[y][x] == 1 then
-                love.graphics.draw(wallTextures[1],16*x*scaleX,16*y*scaleY,0,scaleX,scaleY)
+            if mapData[y + math.floor(playerY/16)][x + math.floor(playerX/16)] == 1 then
+                love.graphics.draw(wallTextures[1],16*x*scaleX-TileOffsetX,16*y*scaleY-TileOffsetY,0,scaleX,scaleY)
             end
         end
     end
