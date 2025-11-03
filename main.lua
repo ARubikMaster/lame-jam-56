@@ -1,5 +1,5 @@
 function love.load()
-    mapData = {{1,1,1,1,1,1,1},{1,1,1,0,0,0,1},{1,1,1,0,1,0,1},{1,0,0,0,0,0,1},{1,0,1,0,1,1,1},{1,0,0,0,1,1,1},{1,1,1,1,1,1,1}} -- Temporary values for the map
+    mapData = {{1,1,1,1,1,1,1,1},{1,1,1,0,0,0,1,1},{1,1,1,0,1,0,1,1},{1,0,0,0,0,0,1,1},{1,0,1,0,1,1,1,1},{1,0,0,0,1,1,1,1},{1,1,1,1,1,1,1,1},{1,0,1,1,1,0,1,1}} -- Temporary values for the map
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
     playerX,playerY = 0,0 -- player variables
     scaleX,scaleY = 1,1 -- universal scale values
@@ -10,6 +10,15 @@ end
 function love.update()
     if love.keyboard.isDown("right") then -- not player movement just temporary for testing
     playerX = playerX + 1
+    end
+    if love.keyboard.isDown("left") then -- not player movement just temporary for testing
+    playerX = playerX - 1
+    end
+    if love.keyboard.isDown("down") then -- not player movement just temporary for testing
+    playerY = playerY + 1
+    end
+    if love.keyboard.isDown("up") then -- not player movement just temporary for testing
+    playerY = playerY - 1
     end
 end
 
