@@ -91,7 +91,7 @@ function love.update(dt)
     end
 
     -- moving up and checking if you can
-    if love.keyboard.isDown("up") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then
+    if love.keyboard.isDown("up") or Ty < love.graphics.getHeight()*.5 and Ty > love.graphics.getHeight()*.4 and Tx > love.graphics.getWidth()*.5 then
         if get_tile(player.x, player.y - 1/16, mapData) == 0 then
             player.y = player.y - 1/16
             player.dir = "up"
