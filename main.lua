@@ -47,7 +47,8 @@ function love.load()
 
 function love.update(dt)
 
-    -- kiwi you comment this cuz i have no fucking clue how it works - epic
+    -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
+    -- just setting the shadowData table to be all black so the shadow script can brighten it up later -SpaceKiwi
     lights = {}
     shadowData = {}
     for y=0, height*16/16 do
@@ -57,6 +58,7 @@ function love.update(dt)
         end
         table.insert(shadowData,line)
     end
+    -- adding the light at the players location
     table.insert(lights,{0,0,0})
     lights[1][1]=player.x
     lights[1][2]=player.y
