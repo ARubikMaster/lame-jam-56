@@ -70,24 +70,30 @@ function love.update(dt)
     local isMoving = false
 
     -- moving right and checking if you can
-    if love.keyboard.isDown("right") and get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/16, player.y, mapData) == 0 then 
-        player.x = player.x + 1/16
-        player.dir = "right"
-        isMoving = true
+    if love.keyboard.isDown("right") then 
+        if get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/16, player.y, mapData) == 0 then
+            player.x = player.x + 1/16
+            player.dir = "right"
+            isMoving = true
+        end
     end
 
     -- moving left and checking if you can
-    if love.keyboard.isDown("left") and get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/16, player.y, mapData) == 0 then 
-        player.x = player.x - 1/16
-        player.dir = "left"
-        isMoving = true
+    if love.keyboard.isDown("left") then 
+        if get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/16, player.y, mapData) == 0 then
+            player.x = player.x - 1/16
+            player.dir = "left"
+            isMoving = true
+        end
     end
 
     -- moving down and checking if you can
-    if love.keyboard.isDown("down") and get_tile(player.x, player.y + 1/16 + 0.45, mapData) == 0 then 
-        player.y = player.y + 1/16
-        player.dir = "down"
-        isMoving = true
+    if love.keyboard.isDown("down") then 
+        if get_tile(player.x, player.y + 1/16 + 0.45, mapData) == 0 then
+           player.y = player.y + 1/16
+           player.dir = "down"
+           isMoving = true
+        end
     end
 
     -- moving up and checking if you can
