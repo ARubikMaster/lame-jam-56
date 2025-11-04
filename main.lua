@@ -70,7 +70,7 @@ function love.update(dt)
     local isMoving = false
 
     -- moving right and checking if you can
-    if love.keyboard.isDown("right") then 
+    if love.keyboard.isDown("right") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then 
         if get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/16, player.y, mapData) == 0 then
             player.x = player.x + 1/16
             player.dir = "right"
@@ -79,7 +79,7 @@ function love.update(dt)
     end
 
     -- moving left and checking if you can
-    if love.keyboard.isDown("left") then 
+    if love.keyboard.isDown("left") or Tx < love.graphics.getWidth()*.6 and Tx > love.graphics.getWidth()*.5 and Ty > love.graphics.getHeight()*.5 then 
         if get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/16, player.y, mapData) == 0 then
             player.x = player.x - 1/16
             player.dir = "left"
@@ -88,7 +88,7 @@ function love.update(dt)
     end
 
     -- moving down and checking if you can
-    if love.keyboard.isDown("down") then 
+    if love.keyboard.isDown("down") or Ty > love.graphics.getHeight()*.9 and Tx > love.graphics.getWidth()*.5 then 
         if get_tile(player.x, player.y + 1/16 + 0.45, mapData) == 0 then
            player.y = player.y + 1/16
            player.dir = "down"
@@ -97,7 +97,7 @@ function love.update(dt)
     end
 
     -- moving up and checking if you can
-    if love.keyboard.isDown("up") or Ty < love.graphics.getHeight()*.5 and Ty > love.graphics.getHeight()*.4 and Tx > love.graphics.getWidth()*.5 then
+    if love.keyboard.isDown("up") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
         if get_tile(player.x, player.y - 1/16, mapData) == 0 then
             player.y = player.y - 1/16
             player.dir = "up"
