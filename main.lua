@@ -6,6 +6,8 @@ width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = 1
 
 function love.load()
+    -- touch variables
+    Tid,Tx,Ty,Tp = 0,0,0,0
     -- loads in anim8 library
     anim8 = require 'libraries/anim8'
     -- sets filter to nearest to avoid blurry pixels
@@ -18,7 +20,7 @@ function love.load()
 
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
 
-    player.spritesheets = {empty=love.graphics.newImage("playerSprites/Empty.png")} -- player spritesheet image
+    player.spritesheets = {empty=love.graphics.newImage("playerSprites/Empty.PNG")} -- player spritesheet image
     player.grid = {}
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
 
@@ -137,6 +139,11 @@ function love.draw()
     love.graphics.print(camX.." "..camY,0,0)
     love.graphics.print(player.x.." "..player.y,0,10)
     love.graphics.print(width.." "..height,0,20)
+    love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
+if Tid ~= 0 then
+love.graphics.setColor(1,1,1,.1)
+love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
+end
 end
 
 
@@ -173,6 +180,13 @@ function tiles_to_pixels(tiles,XorY)
     end
 end
 
+
+function love.touchmoved(id, x, y, dx, dy, pressure)
+Tid = tostring(id)
+Tx = x
+Ty = y
+Tp = pressure
+end
 
 
 -- origin shift algorithm
