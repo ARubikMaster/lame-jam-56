@@ -28,7 +28,7 @@ function love.load()
     player.animations.empty.torch4.idle.up = anim8.newAnimation( player.grid.empty('1-2', 13), .2)
     player.animations.empty.torch4.idle.right = anim8.newAnimation( player.grid.empty('5-6', 13), .2)
 
-    player.x,player.y,player.dir = 50,50.5,"down"  -- player variables
+    player.x,player.y,player.dir = 2.5,2.5,"down"  -- player variables
     camX,camY = 1,1
     lights = {}
     shadowData = {}
@@ -51,22 +51,22 @@ function love.update(dt)
     lights[1][2]=player.y
     lights[1][3]= 2
     local isMoving = false
-    if love.keyboard.isDown("right") then 
+    if love.keyboard.isDown("right") and get_tile(player.x + 1/16, player.y + 0.4, mapData) == 0 then 
         player.x = player.x + 1/16
         player.dir = "right"
         isMoving = true
     end
-    if love.keyboard.isDown("left") then 
+    if love.keyboard.isDown("left") and get_tile(player.x - 1/16, player.y + 0.4, mapData) == 0 then 
         player.x = player.x - 1/16
         player.dir = "left"
         isMoving = true
     end
-    if love.keyboard.isDown("down") then 
+    if love.keyboard.isDown("down") and get_tile(player.x, player.y + 1/16 + 0.4, mapData) == 0 then 
         player.y = player.y + 1/16
         player.dir = "down"
         isMoving = true
     end
-    if love.keyboard.isDown("up") then
+    if love.keyboard.isDown("up") and get_tile(player.x, player.y - 1/16, mapData) == 0 then
         player.y = player.y - 1/16
         player.dir = "up"
         isMoving = true
@@ -77,6 +77,9 @@ function love.update(dt)
 
     player.anim:update(dt)
     update_shadows()
+
+    -- print("x:"..player.x.." y:"..player.y)
+    print(get_tile(player.x, player.y, mapData))
 end
 
 
@@ -127,47 +130,6 @@ function update_shadows()
         end
     end
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- origin shift algorithm
 -- programmed by epiccooldog
@@ -238,6 +200,7 @@ function generate_maze(width, height, seed)
         end
     end
 
+    --[[
     for t_y in pairs(direction_maze) do
         line = ""
         for t_x in pairs(direction_maze[t_y]) do
@@ -245,6 +208,7 @@ function generate_maze(width, height, seed)
         end
         print(line)
     end
+    --]]
 
     -- converting to table of 1s and 0s :D
 
@@ -281,4 +245,13 @@ function generate_maze(width, height, seed)
     end
 
     return maze
+end
+
+function get_tile(x, y, maze)
+    local tile_x = math.floor(x)
+    local tile_y = math.floor(y)
+
+    local tile = maze[tile_y][tile_x]
+
+    return tile
 end
