@@ -51,12 +51,12 @@ function love.update(dt)
     lights[1][2]=player.y
     lights[1][3]= 2
     local isMoving = false
-    if love.keyboard.isDown("right") and get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 then 
+    if love.keyboard.isDown("right") and get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/16, player.y, mapData) == 0 then 
         player.x = player.x + 1/16
         player.dir = "right"
         isMoving = true
     end
-    if love.keyboard.isDown("left") and get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 then 
+    if love.keyboard.isDown("left") and get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/16, player.y, mapData) == 0 then 
         player.x = player.x - 1/16
         player.dir = "left"
         isMoving = true
