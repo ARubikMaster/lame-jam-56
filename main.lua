@@ -49,7 +49,7 @@ function love.update(dt)
     table.insert(lights,{0,0,0})
     lights[1][1]=player.x
     lights[1][2]=player.y
-    lights[1][3]= 2
+    lights[1][3]= 4
     local isMoving = false
     if love.keyboard.isDown("right") and get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 then 
         player.x = player.x + 1/16
@@ -122,7 +122,6 @@ function update_shadows()
                 distY = math.abs(lights[i][2]-shadowY)
                 dist = math.sqrt(distX^2+distY^2)
                 if 1 - ((dist * fogFactor) / lights[i][3])^2 then
-                    --[[if within beam of light]]
                     --[[if it has line of sight]]
                     shadowData[y][x] = shadowData[y][x] - (1 - ((dist * fogFactor) / lights[i][3])^2)
                 end
@@ -130,6 +129,12 @@ function update_shadows()
         end
     end
 end
+
+
+
+
+
+
 
 -- origin shift algorithm
 -- programmed by epiccooldog
