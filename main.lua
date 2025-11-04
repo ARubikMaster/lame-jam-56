@@ -1,7 +1,6 @@
 scaleX,scaleY = 3,3-- universal scale values
 success = love.window.setMode(320*scaleX,240*scaleY,{})
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
-shadowRes = 4
 fogFactor = 1
 function love.load()
     anim8 = require 'libraries/anim8'
@@ -28,7 +27,7 @@ function love.load()
     player.animations.empty.torch4.idle.up = anim8.newAnimation( player.grid.empty('1-2', 13), .2)
     player.animations.empty.torch4.idle.right = anim8.newAnimation( player.grid.empty('5-6', 13), .2)
 
-    player.x,player.y,player.dir = 2.5,2.5,"down"  -- player variables
+    player.x,player.y,player.dir = 112.5,2.5,"down"  -- player variables
     camX,camY = 1,1
     lights = {}
     shadowData = {}
@@ -39,9 +38,9 @@ function love.load()
 function love.update(dt)
     lights = {}
     shadowData = {}
-    for y=0, height*16/shadowRes do
+    for y=0, height*16/16 do
         local line = {}
-        for x=0, width*16/shadowRes do
+        for x=0, width*16/16 do
             table.insert(line,1)
         end
         table.insert(shadowData,line)
@@ -91,20 +90,21 @@ function love.draw()
     for y=0, height do
         for x=0, width do
             if mapData[math.floor(y+camY)][math.floor(x+camX)] == 1 then
-                love.graphics.draw(wallTextures[1] ,--[[]] x*16*scaleX-(camX%1)*16*scaleX ,--[[]] y*16*scaleY-(camY%1)*16*scaleY,0,scaleX,scaleY)
+                love.graphics.draw(wallTextures[1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY)
             end
         end
     end
+    player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
+    for y=1, height*16/16 do
+        for x=1, width*16/16 do
+            love.graphics.setColor(0,0,0,shadowData[y][x])
+            love.graphics.rectangle("fill",tiles_to_pixels(x-1,"X"),tiles_to_pixels(y-1,"Y"),scaleX*16,scaleY*16)
+        end
+    end
+    love.graphics.setColor(1,1,1,1)
     love.graphics.print(camX.." "..camY,0,0)
     love.graphics.print(player.x.." "..player.y,0,10)
     love.graphics.print(width.." "..height,0,20)
-    player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
-    for y=1, height*16/shadowRes do
-        for x=1, width*16/shadowRes do
-            love.graphics.setColor(0,0,0,shadowData[y][x])
-            love.graphics.rectangle("fill",(x-1)*scaleX*shadowRes,(y-1)*scaleY*shadowRes,scaleX*shadowRes,scaleY*shadowRes)
-        end
-    end
 end
 
 
@@ -113,16 +113,20 @@ end
 
 
 function update_shadows()
-    for y=1, height*16/shadowRes do
-        for x=1, width*16/shadowRes do
+    distances = {}
+    distances.x1 = {}
+    distances.y1 = {}
+    distances.x2 = {}
+    distances.y2 = {}
+    for y=1, height*16/16 do
+        for x=1, width*16/16 do
             for i=1, #lights do
-                shadowX = (x-1)*(shadowRes/16) + camX
-                shadowY = (y-1)*(shadowRes/16) + camY
-                distX = math.abs(lights[i][1]-shadowX)
-                distY = math.abs(lights[i][2]-shadowY)
-                dist = math.sqrt(distX^2+distY^2)
-                if 1 - ((dist * fogFactor) / lights[i][3])^2 then
-                    --[[if it has line of sight]]
+                shadowX = (x-1) + camX
+                shadowY = (y-1) + camY
+                distX = lights[i][1]-shadowX
+                distY = lights[i][2]-shadowY
+                dist = math.sqrt(distX^2 + distY^2)
+                if  math.max(0, 1 - ((dist * fogFactor) / lights[i][3])^2) > 0 then
                     shadowData[y][x] = shadowData[y][x] - (1 - ((dist * fogFactor) / lights[i][3])^2)
                 end
             end
@@ -132,7 +136,13 @@ end
 
 
 
-
+function tiles_to_pixels(tiles,XorY)
+    if XorY == "X" then
+        return (tiles -(camX%1))*16*scaleX
+    elseif XorY == "Y" then
+        return (tiles -(camY%1))*16*scaleY
+    end
+end
 
 
 
