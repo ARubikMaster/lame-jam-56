@@ -20,7 +20,7 @@ function love.load()
 
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
 
-    player.spritesheets = {empty=love.graphics.newImage("playerSprites/Empty.PNG")} -- player spritesheet image
+    player.spritesheets = {empty=love.graphics.newImage("playerSprites/empty.PNG")} -- player spritesheet image
     player.grid = {}
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
 
