@@ -4,6 +4,8 @@ scaleX,scaleY = 3,3-- universal scale values
 success = love.window.setMode(320*scaleX,240*scaleY,{}) -- creates window
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = 1
+mazeWidth, mazeHeight = 200, 200
+seed = 4123
 
 function love.load()
     -- touch variables
@@ -13,16 +15,37 @@ function love.load()
     -- sets filter to nearest to avoid blurry pixels
     love.graphics.setDefaultFilter("nearest","nearest")
 
+    font = love.graphics.newFont(11)
+    big_font = love.graphics.newFont(20)
+    love.graphics.setFont(font)
+
+    -- items
+    items = {}
+    items.coal = {texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8}
+
     -- creates player object
     player = {}
 
-    mapData = generate_maze(200,200,100) -- generates a maze of size 200, 200 and using the random seed 100
+    mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
 
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
 
     player.spritesheets = {empty=love.graphics.newImage("playerSprites/Empty.PNG")} -- player spritesheet image
     player.grid = {}
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+
+    -- inventory
+    player.inventory = {}
+    player.inventory.contents = {}
+    player.inventory.slot_number = 4
+    player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
+
+    for x = 1, player.inventory.slot_number do
+        player.inventory.contents[x] = {item=nil, amount=nil}
+    end
+
+    -- just for testing
+    player.inventory.contents[1] = {item=items.coal, amount=6}
 
     -- setting up player animatons; if it works dont break it
     player.animations = {}
@@ -43,7 +66,7 @@ function love.load()
     camX,camY = 1,1 -- camera x and y position
     lights = {}
     shadowData = {}
-    end
+end
 
 
 
@@ -144,14 +167,25 @@ function love.draw()
         end
     end
     love.graphics.setColor(1,1,1,1)
-    love.graphics.print(camX.." "..camY,0,0)
-    love.graphics.print(player.x.." "..player.y,0,10)
-    love.graphics.print(width.." "..height,0,20)
+    love.graphics.print("camera: "..math.floor(camX).." "..math.floor(camY),0,0)
+    love.graphics.print("player: "..math.floor(player.x).." "..math.floor(player.y),0,10)
+    love.graphics.print("window size: "..width.." "..height,0,20)
     love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
-if Tid ~= 0 then
-love.graphics.setColor(1,1,1,.1)
-love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
-end
+
+    for x = 1, player.inventory.slot_number do
+        love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+        if player.inventory.contents[x].item ~= nil then
+            print("H")
+            love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+            love.graphics.setFont(big_font)
+            love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
+            love.graphics.setFont(font)
+        end
+    end
+    if Tid ~= 0 then
+        love.graphics.setColor(1,1,1,.1)
+        love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
+    end
 end
 
 
