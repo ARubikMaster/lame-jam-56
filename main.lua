@@ -3,9 +3,9 @@
 scaleX,scaleY = 3,3-- universal scale values
 success = love.window.setMode(320*scaleX,240*scaleY,{}) -- creates window
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
-fogFactor = 1
+fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
-seed = 4123
+seed = 6023
 
 function love.load()
     -- touch variables
@@ -19,9 +19,16 @@ function love.load()
     big_font = love.graphics.newFont(20)
     love.graphics.setFont(font)
 
-    -- items
+    --[[
+    items
+    id = unique id for each item
+    texture = the texture displayed in the invintory
+    max_stack_size = the max amount of items in one slot
+    playerAnim = the animation that is used by the player (if there is none for the item use "empty")
+    ]]
     items = {}
-    items.coal = {texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8}
+    items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
+    items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
 
     -- creates player object
     player = {}
@@ -36,18 +43,23 @@ function love.load()
 
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
 
-    player.spritesheets = {empty=love.graphics.newImage("playerSprites/empty.PNG")} -- player spritesheet image
+    player.spritesheets = {} -- player spritesheet image
+    player.spritesheets.empty = love.graphics.newImage("playerSprites/empty.PNG")
+    player.spritesheets.gun = love.graphics.newImage("playerSprites/gun.PNG")
+    player.spritesheets.sword = love.graphics.newImage("playerSprites/sword.PNG")
     player.grid = {}
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+    player.grid.gun = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+    player.grid.sword = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
 
     -- inventory
     player.inventory = {}
     player.inventory.contents = {}
-    player.inventory.slot_number = 4
+    player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
 
     for x = 1, player.inventory.slot_number do
-        player.inventory.contents[x] = {item=nil, amount=nil}
+        player.inventory.contents[x] = {item="empty", amount=nil}
     end
 
     -- just for testing
@@ -56,17 +68,27 @@ function love.load()
     -- setting up player animatons; if it works dont break it
     player.animations = {}
     player.animations.empty = {}
-    player.animations.empty.torch4 = {}
-    player.animations.empty.torch4.move = {}
-    player.animations.empty.torch4.idle = {}
-    player.animations.empty.torch4.move.down = anim8.newAnimation( player.grid.empty('1-4', 3), .2)
-    player.animations.empty.torch4.move.left = anim8.newAnimation( player.grid.empty('5-8', 3), .2)
-    player.animations.empty.torch4.move.up = anim8.newAnimation( player.grid.empty('1-4', 14), .2)
-    player.animations.empty.torch4.move.right = anim8.newAnimation( player.grid.empty('5-8', 14), .2)
-    player.animations.empty.torch4.idle.down = anim8.newAnimation( player.grid.empty('1-2', 2), .2)
-    player.animations.empty.torch4.idle.left = anim8.newAnimation( player.grid.empty('5-6', 2), .2)
-    player.animations.empty.torch4.idle.up = anim8.newAnimation( player.grid.empty('1-2', 13), .2)
-    player.animations.empty.torch4.idle.right = anim8.newAnimation( player.grid.empty('5-6', 13), .2)
+    for key, item in pairs(items) do
+        player.animations[item.playerAnim] = {}
+        for torchIdx=1, 4 do
+            player.animations[item.playerAnim]["torch"..torchIdx] = {}
+            for animIdx=1, 2 do
+                local animType = (animIdx == 1 and "idle") or (animIdx == 2 and "move")
+                player.animations[item.playerAnim]["torch"..torchIdx][animType] = {}
+                for directionIdx=1, 4 do
+                    local direction = (directionIdx == 1 and "down") or (directionIdx == 2 and "left") or (directionIdx == 3 and "right") or (directionIdx == 4 and "up")
+                    local spritesheetX = ''
+                    if animType == "move" then 
+                        spritesheetX = (directionIdx == 1 and '1-4') or (directionIdx == 2 and '5-8') or (directionIdx == 3 and '5-8') or (directionIdx == 4 and '1-4')
+                    else
+                        spritesheetX = (directionIdx == 1 and '1-2') or (directionIdx == 2 and '5-6') or (directionIdx == 3 and '5-6') or (directionIdx == 4 and '1-2')
+                    end
+                    local spritesheetY = (directionIdx == 1 and 1 + (animIdx)) or (directionIdx == 2 and 1 + (animIdx)) or (directionIdx == 3 and 12 + (animIdx)) or (directionIdx == 4 and 12 + (animIdx))
+                    player.animations[item.playerAnim]["torch"..torchIdx][animType][direction] = anim8.newAnimation( player.grid[item.playerAnim](spritesheetX , spritesheetY), .2)
+                end
+            end
+        end
+    end
 
     player.x,player.y,player.dir = mazeWidth/2, mazeHeight/2,"down"  -- player variables
     camX,camY = 1,1 -- camera x and y position
@@ -93,32 +115,15 @@ function love.update(dt)
     table.insert(lights,{0,0,0})
     lights[1][1]=player.x
     lights[1][2]=player.y
-    lights[1][3]= 4
+    lights[1][3]=.6
 
 
     local isMoving = false
 
-    -- moving right and checking if you can
-    if love.keyboard.isDown("right") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then 
-        if get_tile(player.x + 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/16, player.y, mapData) == 0 then
-            player.x = player.x + 1/16
-            player.dir = "right"
-            isMoving = true
-        end
-    end
-
-    -- moving left and checking if you can
-    if love.keyboard.isDown("left") or Tx < love.graphics.getWidth()*.6 and Tx > love.graphics.getWidth()*.5 and Ty > love.graphics.getHeight()*.5 then 
-        if get_tile(player.x - 1/16, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/16, player.y, mapData) == 0 then
-            player.x = player.x - 1/16
-            player.dir = "left"
-            isMoving = true
-        end
-    end
 
     -- moving down and checking if you can
-    if love.keyboard.isDown("down") or Ty > love.graphics.getHeight()*.9 and Tx > love.graphics.getWidth()*.5 then 
-        if get_tile(player.x, player.y + 1/16 + 0.45, mapData) == 0 then
+    if love.keyboard.isDown("s") or Ty > love.graphics.getHeight()*.9 and Tx > love.graphics.getWidth()*.5 then 
+        if get_tile(player.x, player.y + 1/8 + 0.45, mapData) == 0 then
            player.y = player.y + 1/16
            player.dir = "down"
            isMoving = true
@@ -126,10 +131,28 @@ function love.update(dt)
     end
 
     -- moving up and checking if you can
-    if love.keyboard.isDown("up") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
-        if get_tile(player.x, player.y - 1/16, mapData) == 0 then
+    if love.keyboard.isDown("w") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
+        if get_tile(player.x, player.y - 1/8, mapData) == 0 then
             player.y = player.y - 1/16
             player.dir = "up"
+            isMoving = true
+        end
+    end
+    
+    -- moving right and checking if you can
+    if love.keyboard.isDown("d") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then 
+        if get_tile(player.x + 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/8, player.y, mapData) == 0 then
+            player.x = player.x + 1/16
+            player.dir = "right"
+            isMoving = true
+        end
+    end
+
+    -- moving left and checking if you can
+    if love.keyboard.isDown("a") or Tx < love.graphics.getWidth()*.6 and Tx > love.graphics.getWidth()*.5 and Ty > love.graphics.getHeight()*.5 then 
+        if get_tile(player.x - 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/8, player.y, mapData) == 0 then
+            player.x = player.x - 1/16
+            player.dir = "left"
             isMoving = true
         end
     end
@@ -156,16 +179,14 @@ function love.draw()
     -- drawing walls and eventually paths
     for y=0, height do
         for x=0, width do
-            if mapData[math.floor(y+camY)][math.floor(x+camX)] == 1 then -- checks if it is a wall
                 -- TODO: only draw walls close to player to get more of them fps
-                love.graphics.draw(wallTextures[1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
-            end
+                love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
         end
     end
 
     
-    -- drawing lighting that idk how it works and prob will be replaced soon
     player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
+    -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
         for x=1, width*16/16 do
             love.graphics.setColor(0,0,0,shadowData[y][x])
@@ -180,7 +201,7 @@ function love.draw()
 
     for x = 1, player.inventory.slot_number do
         love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
-        if player.inventory.contents[x].item ~= nil then
+        if player.inventory.contents[x].item ~= "empty" then
             print("H")
             love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
             love.graphics.setFont(big_font)
@@ -189,7 +210,7 @@ function love.draw()
         end
     end
     if Tid ~= 0 then
-        love.graphics.setColor(1,1,1,.1)
+        love.graphics.setColor(1,1,1,.25)
         love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
     end
 end
@@ -197,28 +218,58 @@ end
 
 -- no clue how it works, kiwi u comment it when u update
 function update_shadows()
-    distances = {}
-    distances.x1 = {}
-    distances.y1 = {}
-    distances.x2 = {}
-    distances.y2 = {}
     for y=1, height*16/16 do
         for x=1, width*16/16 do
             for i=1, #lights do
-                shadowX = (x-1) + camX
-                shadowY = (y-1) + camY
-                distX = lights[i][1]-shadowX
-                distY = lights[i][2]-shadowY
-                dist = math.sqrt(distX^2 + distY^2)
+                local shadowX = (x-1) + camX
+                local shadowY = (y-1) + camY
+                local distX = lights[i][1]-shadowX
+                local distY = lights[i][2]-shadowY
+                local dist = math.sqrt(distX^2 + distY^2)
                 if  math.max(0, 1 - ((dist * fogFactor) / lights[i][3])^2) > 0 then
-                    shadowData[y][x] = shadowData[y][x] - (1 - ((dist * fogFactor) / lights[i][3])^2)
+                    if check_line_of_sight(shadowX,shadowY,lights[i][1],lights[i][2]) then
+                        shadowData[y][x] = shadowData[y][x] - ((1 - ((dist * fogFactor) / lights[i][3])^2) * lights[i][3] / 4)
+                    end
+                    if check_line_of_sight(shadowX+1,shadowY,lights[i][1],lights[i][2]) then
+                        shadowData[y][x] = shadowData[y][x] - ((1 - ((dist * fogFactor) / lights[i][3])^2) * lights[i][3] / 4)
+                    end
+                    if check_line_of_sight(shadowX,shadowY+1,lights[i][1],lights[i][2]) then
+                        shadowData[y][x] = shadowData[y][x] - ((1 - ((dist * fogFactor) / lights[i][3])^2) * lights[i][3] / 4)
+                    end
+                    if check_line_of_sight(shadowX+1,shadowY+1,lights[i][1],lights[i][2]) then
+                        shadowData[y][x] = shadowData[y][x] - ((1 - ((dist * fogFactor) / lights[i][3])^2) * lights[i][3] / 4)
+                    end
                 end
             end
         end
     end
 end
 
+function check_line_of_sight(x1, y1, x2, y2)
+    --[[commented this out for now cause im a bit busy to fix these nonsensical bugs
+    local distX = x2 - x1
+    local distY = y2 - y1
+    local dist = math.sqrt(distX^2 + distY^2)
+    local step = 0.01 -- step size
+    local steps = math.ceil(dist / step)
+    local stepX = distX / steps
+    local stepY = distY / steps
 
+    local rayX, rayY = x1, y1
+
+    for i = 1, steps do
+        rayX = rayX + stepX
+        rayY = rayY + stepY
+        if math.floor(x1) ~= math.floor(rayX) or math.floor(y1) ~= math.floor(rayY) then -- checks if the current tile is not the tile we were previously on
+            x1,y1 = rayX,rayY -- updates it so the previous if doesnt trigger on every cycle after we leave the first tile
+            if get_tile(rayX, rayY, mapData) == 1 then
+                return false -- wall hit
+            end
+        end
+    end]]
+
+    return true -- no walls hit
+end
 
 function tiles_to_pixels(tiles,XorY)
     if XorY == "X" then
