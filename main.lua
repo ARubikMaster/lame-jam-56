@@ -28,6 +28,12 @@ function love.load()
 
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
 
+    for y = 0, 3 do
+        for x = 0, 3 do
+            mapData[(mazeHeight/2) + y][(mazeWidth/2) + x] = 0
+        end
+    end
+
     wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
 
     player.spritesheets = {empty=love.graphics.newImage("playerSprites/empty.PNG")} -- player spritesheet image
@@ -62,7 +68,7 @@ function love.load()
     player.animations.empty.torch4.idle.up = anim8.newAnimation( player.grid.empty('1-2', 13), .2)
     player.animations.empty.torch4.idle.right = anim8.newAnimation( player.grid.empty('5-6', 13), .2)
 
-    player.x,player.y,player.dir = 2.5,2.5,"down"  -- player variables
+    player.x,player.y,player.dir = mazeWidth/2, mazeHeight/2,"down"  -- player variables
     camX,camY = 1,1 -- camera x and y position
     lights = {}
     shadowData = {}
