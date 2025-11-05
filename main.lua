@@ -6,6 +6,7 @@ width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
 seed = 6023
+monsters_amount = 150
 
 function love.load()
     -- touch variables
@@ -29,6 +30,11 @@ function love.load()
     items = {}
     items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
+
+    monsters = {}
+    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=2, speed=1/20}
+    loaded_monsters = {}
+    -- loaded_monsters[1] = {monster=monsters.zombie, x=102, y=102}
 
     -- creates player object
     player = {}
@@ -63,7 +69,9 @@ function love.load()
     end
 
     -- just for testing
-    player.inventory.contents[1] = {item=items.coal, amount=6}
+    player.inventory.contents[1] = {item=items.coal, amount=3}
+    player.inventory.contents[2] = {item=items.coal, amount=2}
+    player.inventory.contents[3] = {item=items.coal, amount=1}
 
     -- setting up player animatons; if it works dont break it
     player.animations = {}
@@ -90,10 +98,20 @@ function love.load()
         end
     end
 
-    player.x,player.y,player.dir = mazeWidth/2, mazeHeight/2,"down"  -- player variables
+    player.x,player.y,player.dir = mazeWidth/2+3, mazeHeight/2+3,"down"  -- player variables
     camX,camY = 1,1 -- camera x and y position
     lights = {}
     shadowData = {}
+
+    for x = 1, monsters_amount do
+        ::retry::
+        local posX = math.random(1, mazeWidth)
+        local posY = math.random(1, mazeHeight)
+        if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
+            goto retry
+        end
+        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY})
+    end
 end
 
 
@@ -163,6 +181,28 @@ function love.update(dt)
 
     player.anim:update(dt)
     update_shadows()
+
+    -- monster ai
+
+    for x=1, #loaded_monsters do
+        local monster = loaded_monsters[x]
+        local dirX = player.x - 0.5 - monster.x
+        local dirY = player.y - 0.5 - monster.y
+
+        local length = math.sqrt(dirX * dirX + dirY * dirY)
+
+        if length ~= 0 then
+            dirX = dirX/length/100
+            dirY = dirY/length/100
+
+            if get_tile(monster.x + dirX + 0.25, monster.y + 0.25, mapData) == 0 and get_tile(monster.x + dirX + 0.75, monster.y + 0.75, mapData) == 0 then
+                monster.x = monster.x + dirX
+            end
+            if get_tile(monster.x + 0.25, monster.y + dirY + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + dirY + 0.75, mapData) == 0 then
+                monster.y = monster.y + dirY
+            end 
+        end
+    end
 end
 
 
@@ -184,13 +224,20 @@ function love.draw()
         end
     end
 
+    for x = 1, #loaded_monsters do
+        local monster = loaded_monsters[x]
+        if math.abs(monster.x - player.x) < 10 and math.abs(monster.y - player.y) < 10 then
+            print("drawing monster!")
+            love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
+        end
+    end
     
     player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
     -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
         for x=1, width*16/16 do
             love.graphics.setColor(0,0,0,shadowData[y][x])
-            love.graphics.rectangle("fill",tiles_to_pixels(x-1,"X"),tiles_to_pixels(y-1,"Y"),scaleX*16,scaleY*16)
+            love.graphics.rectangle("fill",tiles_to_pixels(x-1,"X"),tiles_to_pixels(y-1,"Y"),scaleX*16,scaleY*16) 
         end
     end
     love.graphics.setColor(1,1,1,1)
@@ -202,7 +249,6 @@ function love.draw()
     for x = 1, player.inventory.slot_number do
         love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
         if player.inventory.contents[x].item ~= "empty" then
-            print("H")
             love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
             love.graphics.setFont(big_font)
             love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
@@ -292,6 +338,8 @@ end
 -- programmed by epiccooldog
 
 function generate_maze(width, height, seed)
+    width = math.floor(width / 2)
+    height = math.floor(height / 2) 
     math.randomseed(seed) -- sets the math.random seed
 
     local direction_maze = {} -- maze saved as directions of paths
