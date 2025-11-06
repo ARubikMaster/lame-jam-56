@@ -10,6 +10,7 @@ monsters_amount = 1000
 damage_overlay = 0
 running = true
 debugCounter = 0
+debugString = {}
 start_time = os.time()
 
 function love.load()
@@ -63,6 +64,15 @@ function love.load()
     player.health.half_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_half.png")
     player.health.empty_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_empty.png")
 
+    chest = {}
+    chest.inventory = {}
+    chest.inventory.contents = {}
+    chest.inventory.slot_number = #items
+
+    for key, item1 in pairs(items) do
+        chest.inventory.contents[key] = {item=item1, amount=0}
+    end
+
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
     create_cross_paths(500)
 
@@ -80,8 +90,8 @@ function love.load()
     player.spritesheets.sword = love.graphics.newImage("playerSprites/sword.PNG")
     player.grid = {}
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
-    player.grid.gun = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
-    player.grid.sword = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+    player.grid.gun = anim8.newGrid(16,16,player.spritesheets.gun:getWidth(),player.spritesheets.gun:getHeight())
+    player.grid.sword = anim8.newGrid(16,16,player.spritesheets.sword:getWidth(),player.spritesheets.sword:getHeight())
 
     -- attack
     player.attack = {}
@@ -92,7 +102,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
-    player.heldItem = {item="empty", amount=nil}
+    player.heldItem = {item=items.coal, amount=5}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -102,9 +112,9 @@ function love.load()
     end
 
     -- just for testing
-    player.inventory.contents[1] = {item=items.coal, amount=3}
+    player.inventory.contents[1] = {item=items.coal, amount=6}
     player.inventory.contents[2] = {item=items.coal, amount=2}
-    player.inventory.contents[3] = {item=items.coal, amount=1}
+    player.inventory.contents[3] = {item=items.gun, amount=1}
 
     -- setting up player animatons; if it works dont break it
     player.animations = {}
@@ -217,7 +227,7 @@ function love.update(dt)
                 if player.heldItem.item ~= "empty" then
                     local temp = player.inventory.contents[3].amount
                     player.inventory.contents[3].amount = math.min(player.inventory.contents[3].amount + player.heldItem.amount, player.inventory.contents[3].item.max_stack_size)
-                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[3].amount,0)
+                    player.heldItem.amount = math.max(player.heldItem.amount - (player.inventory.contents[3].amount - temp),0)
                     if player.heldItem.amount == 0 then
                         player.heldItem = {item="empty", amount=nil}
                     end
@@ -239,7 +249,7 @@ function love.update(dt)
                 if player.heldItem.item ~= "empty" then
                     local temp = player.inventory.contents[2].amount
                     player.inventory.contents[2].amount = math.min(player.inventory.contents[2].amount + player.heldItem.amount, player.inventory.contents[2].item.max_stack_size)
-                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[2].amount,0)
+                    player.heldItem.amount = math.max(player.heldItem.amount - (player.inventory.contents[2].amount - temp),0)
                     if player.heldItem.amount == 0 then
                         player.heldItem = {item="empty", amount=nil}
                     end
@@ -261,7 +271,7 @@ function love.update(dt)
                 if player.heldItem.item ~= "empty" then
                     local temp = player.inventory.contents[1].amount
                     player.inventory.contents[1].amount = math.min(player.inventory.contents[1].amount + player.heldItem.amount, player.inventory.contents[1].item.max_stack_size)
-                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[1].amount,0)
+                    player.heldItem.amount = math.max(player.heldItem.amount - (player.inventory.contents[1].amount - temp),0)
                     if player.heldItem.amount == 0 then
                         player.heldItem = {item="empty", amount=nil}
                     end
@@ -280,8 +290,11 @@ function love.update(dt)
 
     -- obvious stuff
     local state = isMoving and "move" or "idle"
-    player.anim = player.animations.empty["torch"..math.ceil(player.torchLevel)][state][player.dir]
-
+    local playerAnimation = "empty"
+    if player.heldItem.item ~= "empty" then
+        playerAnimation = player.heldItem.item.playerAnim
+    end
+    player.anim = player.animations[playerAnimation]["torch"..math.ceil(player.torchLevel)][state][player.dir]
     player.anim:update(dt)
     player.attack.slash_animation:update(dt)
     
@@ -397,8 +410,11 @@ function love.draw()
             end
         end
     end
-    
-    player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
+    local currentSheet = player.spritesheets.empty
+    if player.heldItem.item ~= "empty" then
+        currentSheet = player.spritesheets[player.heldItem.item.playerAnim]
+    end
+    player.anim:draw(currentSheet, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
     --player.attack.slash_animation:draw(player.attack.slash_spritesheet, (player.x-camX)*16*scaleX - (6.5*scaleX), (player.y-camY)*16*scaleY - (8*scaleY), nil, scaleX, scaleY)
     -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
@@ -414,39 +430,40 @@ function love.draw()
     love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
     love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
     love.graphics.print(debugCounter,0,50)
+    love.graphics.print(debugString,0,60)
 
 
     love.graphics.setFont(big_font)
     -- Held item slot
-    love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20, love.graphics.getHeight()-150, 0, scaleX, scaleY)
+    love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + 2*scaleX*24, love.graphics.getHeight()-160, 0, scaleX, scaleY)
     if player.heldItem.item ~= "empty" then
-        love.graphics.draw(player.heldItem.item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20, love.graphics.getHeight()-150, 0, scaleX, scaleY)
+        love.graphics.draw(player.heldItem.item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + 2*scaleX*24+4*scaleX, love.graphics.getHeight()-160+4*scaleY, 0, scaleX, scaleY)
         if player.heldItem.amount > 1 then
-            love.graphics.print(player.heldItem.amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20+10*scaleX, love.graphics.getHeight()-150+8*scaleY)
+            love.graphics.print(player.heldItem.amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + 2*scaleX*24+14*scaleX, love.graphics.getHeight()-160+12*scaleY)
         end
     end
         -- Inventory slots
     for x = 1, player.inventory.slot_number do
-        love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+        love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + (3-x)*scaleX*24, love.graphics.getHeight()-90, 0, scaleX, scaleY)
         if player.inventory.contents[x].item ~= "empty" then
-            love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+            love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + (3-x)*scaleX*24+4*scaleX, love.graphics.getHeight()-90+4*scaleY, 0, scaleX, scaleY)
             if player.inventory.contents[x].amount > 1 then
-                love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
+                love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*24*scaleX)/2 + (3-x)*scaleX*24+14*scaleX, love.graphics.getHeight()-90+12*scaleY)
             end
         end
     end
     love.graphics.setFont(font)
 
     local temp_health = player.health.current
-    for x = 0, player.health.max/2 do
+    for x = 1, player.health.max/2 do
         if temp_health > 1 then -- changed (10 * 9 * scaleX) - (x * 9 * scaleX) to (10-x) * 9 * scaleX :skull: also increased * 9 to * 16 to account for bigger heart sprites - SpaceKiwi
-            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY) 
+            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((5-x) * 16 * scaleX), 20, 0, scaleX, scaleY) 
             temp_health = temp_health - 2
         elseif temp_health == 1 then
-            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
+            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((5-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
             temp_health = temp_health - 1
         elseif temp_health == 0 then
-            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
+            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((5-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
         end
     end
 
