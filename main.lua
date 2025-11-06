@@ -12,6 +12,8 @@ running = true
 debugCounter = 0
 debugString = {}
 start_time = os.time()
+mouse_down = false
+first_mouse_down_frame = false
 
 function love.load()
     inputFlag={i1=false,i2=false,i3=false}
@@ -39,7 +41,7 @@ function love.load()
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
 
     monsters = {}
-    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=1, speed=1/20}
+    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=1, speed=1/20, health=20}
     monsters.zombie.spritesheet = love.graphics.newImage("monsterTextures/zombie-spritesheet.png")
     monsters.zombie.grid = anim8.newGrid(16, 16, monsters.zombie.spritesheet:getWidth(), monsters.zombie.spritesheet:getHeight())
     monsters.zombie.animations = {}
@@ -56,6 +58,9 @@ function love.load()
     player.alive = true
 
     player.torchLevel = 4
+
+    player.bullets = {}
+    items.bullet = {texture = love.graphics.newImage("itemTextures/bullet.png"), max_stack_size = 16, speed = 1/2, playerANim="empty"}
 
     player.health = {}
     player.health.max = 6 -- probably want to change this for balance
@@ -288,6 +293,15 @@ function love.update(dt)
         inputFlag.i3 = false
     end
 
+    if love.mouse.isDown() then
+        if mouse_down ~= true then
+            mouse_down = true
+            first_mouse_down_frame = true
+        else
+            first_mouse_down_frame = false
+        end
+    end
+
     -- obvious stuff
     local state = isMoving and "move" or "idle"
     local playerAnimation = "empty"
@@ -306,6 +320,8 @@ function love.update(dt)
     update_shadows()
 
     -- monster ai
+
+    local monsters_to_remove = {}
 
     for x=1, #loaded_monsters do --this is general monster ai but only works for zombies
         local monster = loaded_monsters[x]
@@ -357,6 +373,14 @@ function love.update(dt)
                 end
             end
         end
+
+        if monster.health <= 0 then
+            table.insert(monsters_to_remove, x)
+        end
+    end
+
+    for x=1, #monsters_to_remove do
+        table.remove(loaded_monsters, x)
     end
 
     if player.health.current <= 0 then
@@ -364,6 +388,54 @@ function love.update(dt)
         player.alive = false
         running = false
         death_time = os.time()
+    end
+
+    for x=1, #player.bullets do
+        local bullet = player.bullets[x]
+
+        local indices_to_remove = {}
+
+        if bullet.direction == "up" then
+            if get_tile(bullet.x, bullet.y-bullet.speed) == 0 then
+                bullet.y = bullet.y - bullet.speed
+            else
+                table.insert(indices_to_remove, x)
+            end
+        elseif bullet.direction == "down" then
+            if get_tile(bullet.x, bullet.y+bullet.speed) == 0 then
+                bullet.y = bullet.y + bullet.speed
+            else
+                table.insert(indices_to_remove, x)
+            end
+        elseif bullet.direction == "left" then
+            if get_tile(bullet.x-bullet.speed, bullet.y) == 0 then
+                bullet.x = bullet.x - bullet.speed
+            else
+                table.insert(indices_to_remove, x)
+            end
+        elseif bullet.direction == "right" then
+            if get_tile(bullet.x+bullet.speed, bullet.y) == 0 then
+                bullet.x = bullet.x + bullet.speed
+            else
+                table.insert(indices_to_remove, x)
+            end
+        end
+
+        for y=1, #indices_to_remove do
+            table.remove(player.bullets, y)
+        end
+
+        for y=1, #loaded_monsters do
+            local monster = loaded_monsters[x]
+
+            if math.abs(bullet.x-monster.x) < 0.5 and math.abs(bullet.x-monster.x+1) < 0.5 and math.abs(bullet.y-monster.y) < 0.5 and math.abs(bullet.y-monster.y+1) < 0.5 then
+                monster.health = monster.health - 20
+            end 
+        end
+    end
+
+    if mouse_down and first_mouse_down_frame and player.heldItem.item == items.gun then
+        table.insert(player.bullets, {direction=player.direction, x=player.x, y=player.y})
     end
 
     ::finish::
@@ -410,6 +482,9 @@ function love.draw()
             end
         end
     end
+
+    -- draw bullets here
+
     local currentSheet = player.spritesheets.empty
     if player.heldItem.item ~= "empty" then
         currentSheet = player.spritesheets[player.heldItem.item.playerAnim]
