@@ -138,7 +138,7 @@ function love.update(dt)
             isMoving = true
         end
     end
-    
+
     -- moving right and checking if you can
     if love.keyboard.isDown("d") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then 
         if get_tile(player.x + 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/8, player.y, mapData) == 0 then
