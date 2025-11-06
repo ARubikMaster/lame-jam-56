@@ -9,10 +9,11 @@ seed = os.time()
 monsters_amount = 1000
 damage_overlay = 0
 running = true
-
+debugCounter = 0
 start_time = os.time()
 
 function love.load()
+    inputFlag={i1=false,i2=false,i3=false}
     -- touch variables
     Tid,Tx,Ty,Tp = 0,0,0,0
     -- loads in anim8 library
@@ -37,7 +38,7 @@ function love.load()
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
 
     monsters = {}
-    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=2, speed=1/20}
+    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=1, speed=1/20}
     monsters.zombie.spritesheet = love.graphics.newImage("monsterTextures/zombie-spritesheet.png")
     monsters.zombie.grid = anim8.newGrid(16, 16, monsters.zombie.spritesheet:getWidth(), monsters.zombie.spritesheet:getHeight())
     monsters.zombie.animations = {}
@@ -53,14 +54,17 @@ function love.load()
 
     player.alive = true
 
+    player.torchLevel = 4
+
     player.health = {}
-    player.health.max = 20
-    player.health.current = 20
-    player.health.full_heart_texture = love.graphics.newImage("uiTextures/heart-full.png")
-    player.health.half_heart_texture = love.graphics.newImage("uiTextures/heart-half.png")
-    player.health.empty_heart_texture = love.graphics.newImage("uiTextures/heart-empty.png")
+    player.health.max = 6 -- probably want to change this for balance
+    player.health.current = 6
+    player.health.full_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_full.png")
+    player.health.half_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_half.png")
+    player.health.empty_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_empty.png")
 
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
+    create_cross_paths(500)
 
     for y = 0, 3 do
         for x = 0, 3 do
@@ -88,6 +92,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
+    player.heldItem = {item="empty", amount=nil}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -138,7 +143,7 @@ function love.load()
         if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
             goto retry
         end
-        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=20, last_attack=os.time(), direction="up"})
+        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=3, last_attack=os.time(), direction="up"})
     end
 end
 
@@ -206,9 +211,76 @@ function love.update(dt)
         end
     end
 
+    if love.keyboard.isDown("1") then --the key and item index are opposite and its YOUR FAULT EPIC -SpaceKiwi
+        if inputFlag.i1 == false then
+            if player.heldItem.item == player.inventory.contents[3].item then
+                if player.heldItem.item ~= "empty" then
+                    local temp = player.inventory.contents[3].amount
+                    player.inventory.contents[3].amount = math.min(player.inventory.contents[3].amount + player.heldItem.amount, player.inventory.contents[3].item.max_stack_size)
+                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[3].amount,0)
+                    if player.heldItem.amount == 0 then
+                        player.heldItem = {item="empty", amount=nil}
+                    end
+                    inputFlag.i1 = true
+                end
+            else
+                local temp = player.heldItem
+                player.heldItem = player.inventory.contents[3]
+                player.inventory.contents[3] = temp
+                inputFlag.i1 = true
+            end
+        end
+    else
+        inputFlag.i1 = false
+    end
+    if love.keyboard.isDown("2") then
+        if inputFlag.i2 == false then
+            if player.heldItem.item == player.inventory.contents[2].item then
+                if player.heldItem.item ~= "empty" then
+                    local temp = player.inventory.contents[2].amount
+                    player.inventory.contents[2].amount = math.min(player.inventory.contents[2].amount + player.heldItem.amount, player.inventory.contents[2].item.max_stack_size)
+                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[2].amount,0)
+                    if player.heldItem.amount == 0 then
+                        player.heldItem = {item="empty", amount=nil}
+                    end
+                    inputFlag.i2 = true
+                end
+            else
+                local temp = player.heldItem
+                player.heldItem = player.inventory.contents[2]
+                player.inventory.contents[2] = temp
+                inputFlag.i2 = true
+            end
+        end
+    else
+        inputFlag.i2 = false
+    end
+    if love.keyboard.isDown("3") then
+        if inputFlag.i3 == false then
+            if player.heldItem.item == player.inventory.contents[1].item then
+                if player.heldItem.item ~= "empty" then
+                    local temp = player.inventory.contents[1].amount
+                    player.inventory.contents[1].amount = math.min(player.inventory.contents[1].amount + player.heldItem.amount, player.inventory.contents[1].item.max_stack_size)
+                    player.heldItem.amount = math.max(player.heldItem.amount - player.inventory.contents[1].amount,0)
+                    if player.heldItem.amount == 0 then
+                        player.heldItem = {item="empty", amount=nil}
+                    end
+                    inputFlag.i3 = true
+                end
+            else
+                local temp = player.heldItem
+                player.heldItem = player.inventory.contents[1]
+                player.inventory.contents[1] = temp
+                inputFlag.i3 = true
+            end
+        end
+    else
+        inputFlag.i3 = false
+    end
+
     -- obvious stuff
     local state = isMoving and "move" or "idle"
-    player.anim = player.animations.empty.torch4[state][player.dir]
+    player.anim = player.animations.empty["torch"..math.ceil(player.torchLevel)][state][player.dir]
 
     player.anim:update(dt)
     player.attack.slash_animation:update(dt)
@@ -222,14 +294,14 @@ function love.update(dt)
 
     -- monster ai
 
-    for x=1, #loaded_monsters do
+    for x=1, #loaded_monsters do --this is general monster ai but only works for zombies
         local monster = loaded_monsters[x]
         local dirX = player.x - 0.5 - monster.x
         local dirY = player.y - 0.5 - monster.y
 
-        local length = math.sqrt(dirX * dirX + dirY * dirY)
+        local length = math.sqrt(dirX * dirX + dirY * dirY) -- bro doesn't know ^2
 
-        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.75 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.75 and (os.time() - monster.last_attack) >= 0.5 then
+        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.75 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.75 and (os.time() - monster.last_attack) >= 2 then
             player.health.current = player.health.current - monster.monster.damage
             monster.last_attack = os.time()
             damage_overlay = 5
@@ -288,6 +360,7 @@ end
 
 function love.draw()
     -- updates cam position to not show outside of maze (but it should be in update no?)
+    -- I put it near where it is used for clarity -SpaceKiwi
     camX = math.max(player.x-width/(2*scaleX),1)
     camY = math.max(player.y-height/(2*scaleY),1)
 
@@ -340,27 +413,40 @@ function love.draw()
     love.graphics.print("window size: "..width.." "..height,0,20)
     love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
     love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
+    love.graphics.print(debugCounter,0,50)
 
-    for x = 1, player.inventory.slot_number do
-        love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
-        if player.inventory.contents[x].item ~= "empty" then
-            love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
-            love.graphics.setFont(big_font)
-            love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
-            love.graphics.setFont(font)
+
+    love.graphics.setFont(big_font)
+    -- Held item slot
+    love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20, love.graphics.getHeight()-150, 0, scaleX, scaleY)
+    if player.heldItem.item ~= "empty" then
+        love.graphics.draw(player.heldItem.item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20, love.graphics.getHeight()-150, 0, scaleX, scaleY)
+        if player.heldItem.amount > 1 then
+            love.graphics.print(player.heldItem.amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + 2*scaleX*20+10*scaleX, love.graphics.getHeight()-150+8*scaleY)
         end
     end
+        -- Inventory slots
+    for x = 1, player.inventory.slot_number do
+        love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+        if player.inventory.contents[x].item ~= "empty" then
+            love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20, love.graphics.getHeight()-90, 0, scaleX, scaleY)
+            if player.inventory.contents[x].amount > 1 then
+                love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*20*scaleX)/2 + (3-x)*scaleX*20+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
+            end
+        end
+    end
+    love.graphics.setFont(font)
 
     local temp_health = player.health.current
     for x = 0, player.health.max/2 do
-        if temp_health > 1 then
-            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+        if temp_health > 1 then -- changed (10 * 9 * scaleX) - (x * 9 * scaleX) to (10-x) * 9 * scaleX :skull: also increased * 9 to * 16 to account for bigger heart sprites - SpaceKiwi
+            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY) 
             temp_health = temp_health - 2
         elseif temp_health == 1 then
-            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
             temp_health = temp_health - 1
         elseif temp_health == 0 then
-            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10-x) * 16 * scaleX), 20, 0, scaleX, scaleY)
         end
     end
 
@@ -578,4 +664,24 @@ function get_tile(x, y, maze)
     local tile = maze[tile_y][tile_x]
 
     return tile
+end
+
+
+function create_cross_paths(amount)
+    local idx = 0
+    for i=1, amount do
+        local x,y = 0,0
+        repeat
+            love.math.setRandomSeed(seed+idx)
+            x = love.math.random(2,#mapData[1]-1)
+            idx = idx + 1
+            love.math.setRandomSeed(seed+idx)
+            y = love.math.random(2,#mapData-1)
+            idx = idx + 1
+        until (mapData[y][x] == 1 and mapData[y+1][x] == 0 and mapData[y-1][x] == 0 and mapData[y][x+1] == 1 and mapData[y][x-1] == 1) or (mapData[y][x] == 1 and mapData[y+1][x] == 1 and mapData[y-1][x] == 1 and mapData[y][x+1] == 0 and mapData[y][x-1] == 0) or idx > 10000
+        if idx < 10000 then
+            mapData[y][x] = 0
+            debugCounter = debugCounter + 1
+        end
+    end
 end
