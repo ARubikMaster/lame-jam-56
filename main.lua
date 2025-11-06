@@ -6,8 +6,11 @@ width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
 seed = os.time()
-monsters_amount = 150
+monsters_amount = 1000
 damage_overlay = 0
+running = true
+
+start_time = os.time()
 
 function love.load()
     -- touch variables
@@ -19,6 +22,7 @@ function love.load()
 
     font = love.graphics.newFont(11)
     big_font = love.graphics.newFont(20)
+    font_ultra_pro_max_5g_z_flip = love.graphics.newFont(70)
     love.graphics.setFont(font)
 
     --[[
@@ -39,6 +43,8 @@ function love.load()
 
     -- creates player object
     player = {}
+
+    player.alive = true
 
     player.health = {}
     player.health.max = 20
@@ -65,6 +71,13 @@ function love.load()
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
     player.grid.gun = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
     player.grid.sword = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+
+    -- attack
+    player.attack = {}
+    player.attack.last_attack = os.time()
+    player.attack.slash_spritesheet = love.graphics.newImage("playerSprites/sword-slash.png")
+    player.attack.slash_grid = anim8.newGrid(17, 24, player.attack.slash_spritesheet:getWidth(), player.attack.slash_spritesheet:getHeight())
+    player.attack.slash_animation = anim8.newAnimation(player.attack.slash_grid('1-10', 1), 0.05)
 
     -- inventory
     player.inventory = {}
@@ -125,6 +138,9 @@ end
 
 
 function love.update(dt)
+    if not running then
+        goto finish
+    end
 
     -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
     -- just setting the shadowData table to be all black so the shadow script can brighten it up later -SpaceKiwi
@@ -188,6 +204,7 @@ function love.update(dt)
     player.anim = player.animations.empty.torch4[state][player.dir]
 
     player.anim:update(dt)
+    player.attack.slash_animation:update(dt)
     update_shadows()
 
     -- monster ai
@@ -199,14 +216,10 @@ function love.update(dt)
 
         local length = math.sqrt(dirX * dirX + dirY * dirY)
 
-        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 1 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 1 and (os.time() - monster.last_attack) >= 0.5 then
+        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.75 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.75 and (os.time() - monster.last_attack) >= 0.5 then
             player.health.current = player.health.current - monster.monster.damage
             monster.last_attack = os.time()
             damage_overlay = 5
-        end
-
-        if player.health.current < 0 then
-            player.health.current = 0
         end
 
         if length ~= 0 then
@@ -221,6 +234,15 @@ function love.update(dt)
             end 
         end
     end
+
+    if player.health.current <= 0 then
+        player.health.current = 0
+        player.alive = false
+        running = false
+        death_time = os.time()
+    end
+
+    ::finish::
 end
 
 
@@ -242,8 +264,8 @@ function love.draw()
     -- drawing walls and eventually paths
     for y=0, height do
         for x=0, width do
-                -- TODO: only draw walls close to player to get more of them fps
-                love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
+            -- TODO: only draw walls close to player to get more of them fps
+            love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
         end
     end
 
@@ -255,6 +277,7 @@ function love.draw()
     end
     
     player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
+    --player.attack.slash_animation:draw(player.attack.slash_spritesheet, (player.x-camX)*16*scaleX - (6.5*scaleX), (player.y-camY)*16*scaleY - (8*scaleY), nil, scaleX, scaleY)
     -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
         for x=1, width*16/16 do
@@ -267,6 +290,7 @@ function love.draw()
     love.graphics.print("player: "..math.floor(player.x).." "..math.floor(player.y),0,10)
     love.graphics.print("window size: "..width.." "..height,0,20)
     love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
+    love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
 
     for x = 1, player.inventory.slot_number do
         love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
@@ -289,6 +313,13 @@ function love.draw()
         elseif temp_health == 0 then
             love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
         end
+    end
+
+    if not player.alive then
+        love.graphics.setFont(font_ultra_pro_max_5g_z_flip)
+        local font_h = font_ultra_pro_max_5g_z_flip:getHeight() * scaleY
+        love.graphics.printf("U ded :(\n" .. math.floor((death_time-start_time)/60*100)/100 .. "min", 0, (love.graphics.getHeight() - font_h*2) / 2, love.graphics.getWidth()/scaleX, "center", 0, scaleX, scaleY, 0, 0, 0, 0)
+        love.graphics.setFont(font)
     end
 
     if Tid ~= 0 then
