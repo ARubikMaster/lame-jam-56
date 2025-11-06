@@ -5,8 +5,9 @@ success = love.window.setMode(320*scaleX,240*scaleY,{}) -- creates window
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
-seed = 6023
+seed = os.time()
 monsters_amount = 150
+damage_overlay = 0
 
 function love.load()
     -- touch variables
@@ -39,6 +40,13 @@ function love.load()
     -- creates player object
     player = {}
 
+    player.health = {}
+    player.health.max = 20
+    player.health.current = 20
+    player.health.full_heart_texture = love.graphics.newImage("uiTextures/heart-full.png")
+    player.health.half_heart_texture = love.graphics.newImage("uiTextures/heart-half.png")
+    player.health.empty_heart_texture = love.graphics.newImage("uiTextures/heart-empty.png")
+
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
 
     for y = 0, 3 do
@@ -47,7 +55,7 @@ function love.load()
         end
     end
 
-    wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
+    wallTextures = {love.graphics.newImage("wallTextures/path.png"),love.graphics.newImage("wallTextures/wall.png")} -- add wall textures here
 
     player.spritesheets = {} -- player spritesheet image
     player.spritesheets.empty = love.graphics.newImage("playerSprites/empty.PNG")
@@ -110,7 +118,7 @@ function love.load()
         if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
             goto retry
         end
-        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY})
+        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=20, last_attack=os.time()})
     end
 end
 
@@ -191,6 +199,16 @@ function love.update(dt)
 
         local length = math.sqrt(dirX * dirX + dirY * dirY)
 
+        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 1 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 1 and (os.time() - monster.last_attack) >= 0.5 then
+            player.health.current = player.health.current - monster.monster.damage
+            monster.last_attack = os.time()
+            damage_overlay = 5
+        end
+
+        if player.health.current < 0 then
+            player.health.current = 0
+        end
+
         if length ~= 0 then
             dirX = dirX/length/100
             dirY = dirY/length/100
@@ -215,6 +233,11 @@ function love.draw()
     -- sets color to white
     love.graphics.setColor(1,1,1,1)
 
+    if damage_overlay ~= 0 then
+        love.graphics.setColor(1,0,0,1)
+        damage_overlay = damage_overlay - 1
+    end
+
 
     -- drawing walls and eventually paths
     for y=0, height do
@@ -227,7 +250,6 @@ function love.draw()
     for x = 1, #loaded_monsters do
         local monster = loaded_monsters[x]
         if math.abs(monster.x - player.x) < 10 and math.abs(monster.y - player.y) < 10 then
-            print("drawing monster!")
             love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
         end
     end
@@ -255,6 +277,20 @@ function love.draw()
             love.graphics.setFont(font)
         end
     end
+
+    local temp_health = player.health.current
+    for x = 0, player.health.max/2 do
+        if temp_health > 1 then
+            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            temp_health = temp_health - 2
+        elseif temp_health == 1 then
+            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            temp_health = temp_health - 1
+        elseif temp_health == 0 then
+            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+        end
+    end
+
     if Tid ~= 0 then
         love.graphics.setColor(1,1,1,.25)
         love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
