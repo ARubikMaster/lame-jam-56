@@ -38,6 +38,13 @@ function love.load()
 
     monsters = {}
     monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=2, speed=1/20}
+    monsters.zombie.spritesheet = love.graphics.newImage("monsterTextures/zombie-spritesheet.png")
+    monsters.zombie.grid = anim8.newGrid(16, 16, monsters.zombie.spritesheet:getWidth(), monsters.zombie.spritesheet:getHeight())
+    monsters.zombie.animations = {}
+    monsters.zombie.animations.down = anim8.newAnimation(monsters.zombie.grid('1-2', 1), 0.4)
+    monsters.zombie.animations.up = anim8.newAnimation(monsters.zombie.grid('1-2', 2), 0.4)
+    monsters.zombie.animations.left = anim8.newAnimation(monsters.zombie.grid('1-2', 3), 0.4)
+    monsters.zombie.animations.right = anim8.newAnimation(monsters.zombie.grid('1-2', 4), 0.4)
     loaded_monsters = {}
     -- loaded_monsters[1] = {monster=monsters.zombie, x=102, y=102}
 
@@ -131,7 +138,7 @@ function love.load()
         if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
             goto retry
         end
-        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=20, last_attack=os.time()})
+        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=20, last_attack=os.time(), direction="up"})
     end
 end
 
@@ -205,6 +212,12 @@ function love.update(dt)
 
     player.anim:update(dt)
     player.attack.slash_animation:update(dt)
+    
+    monsters.zombie.animations.down:update(dt)
+    monsters.zombie.animations.up:update(dt)
+    monsters.zombie.animations.left:update(dt)
+    monsters.zombie.animations.right:update(dt)
+
     update_shadows()
 
     -- monster ai
@@ -232,6 +245,32 @@ function love.update(dt)
             if get_tile(monster.x + 0.25, monster.y + dirY + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + dirY + 0.75, mapData) == 0 then
                 monster.y = monster.y + dirY
             end 
+
+            if dirX > 0 and dirY > 0 then
+                if dirX > dirY then
+                    monster.direction = "right"
+                else
+                    monster.direction = "down"
+                end
+            elseif dirX > 0 and dirY < 0 then
+                if dirX > math.abs(dirY) then
+                    monster.direction = "right"
+                else
+                    monster.direction = "up"
+                end
+            elseif dirX < 0 and dirY > 0 then
+                if math.abs(dirX) > dirY then
+                    monster.direction = "left"
+                else
+                    monster.direction = "down"
+                end
+            elseif dirX < 0 and dirY < 0 then
+                if math.abs(dirX) > math.abs(dirY) then
+                    monster.direction = "left"
+                else
+                    monster.direction = "up"
+                end
+            end
         end
     end
 
@@ -272,7 +311,17 @@ function love.draw()
     for x = 1, #loaded_monsters do
         local monster = loaded_monsters[x]
         if math.abs(monster.x - player.x) < 10 and math.abs(monster.y - player.y) < 10 then
-            love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
+            print(monster.direction)
+            --love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
+            if monster.direction == "up" then
+                monster.monster.animations.up:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "down" then
+                monster.monster.animations.down:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "left" then
+                monster.monster.animations.left:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "right" then
+                monster.monster.animations.right:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            end
         end
     end
     
