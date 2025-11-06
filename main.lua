@@ -5,7 +5,12 @@ success = love.window.setMode(320*scaleX,240*scaleY,{}) -- creates window
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
-seed = 6023
+seed = os.time()
+monsters_amount = 1000
+damage_overlay = 0
+running = true
+
+start_time = os.time()
 
 function love.load()
     -- touch variables
@@ -17,6 +22,7 @@ function love.load()
 
     font = love.graphics.newFont(11)
     big_font = love.graphics.newFont(20)
+    font_ultra_pro_max_5g_z_flip = love.graphics.newFont(70)
     love.graphics.setFont(font)
 
     --[[
@@ -30,8 +36,29 @@ function love.load()
     items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
 
+    monsters = {}
+    monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=2, speed=1/20}
+    monsters.zombie.spritesheet = love.graphics.newImage("monsterTextures/zombie-spritesheet.png")
+    monsters.zombie.grid = anim8.newGrid(16, 16, monsters.zombie.spritesheet:getWidth(), monsters.zombie.spritesheet:getHeight())
+    monsters.zombie.animations = {}
+    monsters.zombie.animations.down = anim8.newAnimation(monsters.zombie.grid('1-2', 1), 0.4)
+    monsters.zombie.animations.up = anim8.newAnimation(monsters.zombie.grid('1-2', 2), 0.4)
+    monsters.zombie.animations.left = anim8.newAnimation(monsters.zombie.grid('1-2', 3), 0.4)
+    monsters.zombie.animations.right = anim8.newAnimation(monsters.zombie.grid('1-2', 4), 0.4)
+    loaded_monsters = {}
+    -- loaded_monsters[1] = {monster=monsters.zombie, x=102, y=102}
+
     -- creates player object
     player = {}
+
+    player.alive = true
+
+    player.health = {}
+    player.health.max = 20
+    player.health.current = 20
+    player.health.full_heart_texture = love.graphics.newImage("uiTextures/heart-full.png")
+    player.health.half_heart_texture = love.graphics.newImage("uiTextures/heart-half.png")
+    player.health.empty_heart_texture = love.graphics.newImage("uiTextures/heart-empty.png")
 
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
 
@@ -41,7 +68,7 @@ function love.load()
         end
     end
 
-    wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")} -- add wall textures here
+    wallTextures = {love.graphics.newImage("wallTextures/path.png"),love.graphics.newImage("wallTextures/wall.png")} -- add wall textures here
 
     player.spritesheets = {} -- player spritesheet image
     player.spritesheets.empty = love.graphics.newImage("playerSprites/empty.PNG")
@@ -51,6 +78,13 @@ function love.load()
     player.grid.empty = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
     player.grid.gun = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
     player.grid.sword = anim8.newGrid(16,16,player.spritesheets.empty:getWidth(),player.spritesheets.empty:getHeight())
+
+    -- attack
+    player.attack = {}
+    player.attack.last_attack = os.time()
+    player.attack.slash_spritesheet = love.graphics.newImage("playerSprites/sword-slash.png")
+    player.attack.slash_grid = anim8.newGrid(17, 24, player.attack.slash_spritesheet:getWidth(), player.attack.slash_spritesheet:getHeight())
+    player.attack.slash_animation = anim8.newAnimation(player.attack.slash_grid('1-10', 1), 0.05)
 
     -- inventory
     player.inventory = {}
@@ -63,7 +97,9 @@ function love.load()
     end
 
     -- just for testing
-    player.inventory.contents[1] = {item=items.coal, amount=6}
+    player.inventory.contents[1] = {item=items.coal, amount=3}
+    player.inventory.contents[2] = {item=items.coal, amount=2}
+    player.inventory.contents[3] = {item=items.coal, amount=1}
 
     -- setting up player animatons; if it works dont break it
     player.animations = {}
@@ -90,15 +126,28 @@ function love.load()
         end
     end
 
-    player.x,player.y,player.dir = mazeWidth/2, mazeHeight/2,"down"  -- player variables
+    player.x,player.y,player.dir = mazeWidth/2+3, mazeHeight/2+3,"down"  -- player variables
     camX,camY = 1,1 -- camera x and y position
     lights = {}
     shadowData = {}
+
+    for x = 1, monsters_amount do
+        ::retry::
+        local posX = math.random(1, mazeWidth)
+        local posY = math.random(1, mazeHeight)
+        if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
+            goto retry
+        end
+        table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=20, last_attack=os.time(), direction="up"})
+    end
 end
 
 
 
 function love.update(dt)
+    if not running then
+        goto finish
+    end
 
     -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
     -- just setting the shadowData table to be all black so the shadow script can brighten it up later -SpaceKiwi
@@ -162,7 +211,77 @@ function love.update(dt)
     player.anim = player.animations.empty.torch4[state][player.dir]
 
     player.anim:update(dt)
+    player.attack.slash_animation:update(dt)
+    
+    monsters.zombie.animations.down:update(dt)
+    monsters.zombie.animations.up:update(dt)
+    monsters.zombie.animations.left:update(dt)
+    monsters.zombie.animations.right:update(dt)
+
     update_shadows()
+
+    -- monster ai
+
+    for x=1, #loaded_monsters do
+        local monster = loaded_monsters[x]
+        local dirX = player.x - 0.5 - monster.x
+        local dirY = player.y - 0.5 - monster.y
+
+        local length = math.sqrt(dirX * dirX + dirY * dirY)
+
+        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.75 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.75 and (os.time() - monster.last_attack) >= 0.5 then
+            player.health.current = player.health.current - monster.monster.damage
+            monster.last_attack = os.time()
+            damage_overlay = 5
+        end
+
+        if length ~= 0 then
+            dirX = dirX/length/100
+            dirY = dirY/length/100
+
+            if get_tile(monster.x + dirX + 0.25, monster.y + 0.25, mapData) == 0 and get_tile(monster.x + dirX + 0.75, monster.y + 0.75, mapData) == 0 then
+                monster.x = monster.x + dirX
+            end
+            if get_tile(monster.x + 0.25, monster.y + dirY + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + dirY + 0.75, mapData) == 0 then
+                monster.y = monster.y + dirY
+            end 
+
+            if dirX > 0 and dirY > 0 then
+                if dirX > dirY then
+                    monster.direction = "right"
+                else
+                    monster.direction = "down"
+                end
+            elseif dirX > 0 and dirY < 0 then
+                if dirX > math.abs(dirY) then
+                    monster.direction = "right"
+                else
+                    monster.direction = "up"
+                end
+            elseif dirX < 0 and dirY > 0 then
+                if math.abs(dirX) > dirY then
+                    monster.direction = "left"
+                else
+                    monster.direction = "down"
+                end
+            elseif dirX < 0 and dirY < 0 then
+                if math.abs(dirX) > math.abs(dirY) then
+                    monster.direction = "left"
+                else
+                    monster.direction = "up"
+                end
+            end
+        end
+    end
+
+    if player.health.current <= 0 then
+        player.health.current = 0
+        player.alive = false
+        running = false
+        death_time = os.time()
+    end
+
+    ::finish::
 end
 
 
@@ -175,22 +294,44 @@ function love.draw()
     -- sets color to white
     love.graphics.setColor(1,1,1,1)
 
+    if damage_overlay ~= 0 then
+        love.graphics.setColor(1,0,0,1)
+        damage_overlay = damage_overlay - 1
+    end
+
 
     -- drawing walls and eventually paths
     for y=0, height do
         for x=0, width do
-                -- TODO: only draw walls close to player to get more of them fps
-                love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
+            -- TODO: only draw walls close to player to get more of them fps
+            love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
         end
     end
 
+    for x = 1, #loaded_monsters do
+        local monster = loaded_monsters[x]
+        if math.abs(monster.x - player.x) < 10 and math.abs(monster.y - player.y) < 10 then
+            print(monster.direction)
+            --love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
+            if monster.direction == "up" then
+                monster.monster.animations.up:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "down" then
+                monster.monster.animations.down:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "left" then
+                monster.monster.animations.left:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            elseif monster.direction == "right" then
+                monster.monster.animations.right:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
+            end
+        end
+    end
     
     player.anim:draw(player.spritesheets.empty, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
+    --player.attack.slash_animation:draw(player.attack.slash_spritesheet, (player.x-camX)*16*scaleX - (6.5*scaleX), (player.y-camY)*16*scaleY - (8*scaleY), nil, scaleX, scaleY)
     -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
         for x=1, width*16/16 do
             love.graphics.setColor(0,0,0,shadowData[y][x])
-            love.graphics.rectangle("fill",tiles_to_pixels(x-1,"X"),tiles_to_pixels(y-1,"Y"),scaleX*16,scaleY*16)
+            love.graphics.rectangle("fill",tiles_to_pixels(x-1,"X"),tiles_to_pixels(y-1,"Y"),scaleX*16,scaleY*16) 
         end
     end
     love.graphics.setColor(1,1,1,1)
@@ -198,17 +339,38 @@ function love.draw()
     love.graphics.print("player: "..math.floor(player.x).." "..math.floor(player.y),0,10)
     love.graphics.print("window size: "..width.." "..height,0,20)
     love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
+    love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
 
     for x = 1, player.inventory.slot_number do
         love.graphics.draw(player.inventory.slot_texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
         if player.inventory.contents[x].item ~= "empty" then
-            print("H")
             love.graphics.draw(player.inventory.contents[x].item.texture, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16, love.graphics.getHeight()-90, 0, scaleX, scaleY)
             love.graphics.setFont(big_font)
             love.graphics.print(player.inventory.contents[x].amount, love.graphics.getWidth()/2 - (player.inventory.slot_number*16*scaleX)/2 + (x-1)*scaleX*16+10*scaleX, love.graphics.getHeight()-90+8*scaleY)
             love.graphics.setFont(font)
         end
     end
+
+    local temp_health = player.health.current
+    for x = 0, player.health.max/2 do
+        if temp_health > 1 then
+            love.graphics.draw(player.health.full_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            temp_health = temp_health - 2
+        elseif temp_health == 1 then
+            love.graphics.draw(player.health.half_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+            temp_health = temp_health - 1
+        elseif temp_health == 0 then
+            love.graphics.draw(player.health.empty_heart_texture, love.graphics.getWidth() - ((10 * 9 * scaleX) - (x * 9 * scaleX)), 10, 0, scaleX, scaleY)
+        end
+    end
+
+    if not player.alive then
+        love.graphics.setFont(font_ultra_pro_max_5g_z_flip)
+        local font_h = font_ultra_pro_max_5g_z_flip:getHeight() * scaleY
+        love.graphics.printf("U ded :(\n" .. math.floor((death_time-start_time)/60*100)/100 .. "min", 0, (love.graphics.getHeight() - font_h*2) / 2, love.graphics.getWidth()/scaleX, "center", 0, scaleX, scaleY, 0, 0, 0, 0)
+        love.graphics.setFont(font)
+    end
+
     if Tid ~= 0 then
         love.graphics.setColor(1,1,1,.25)
         love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
@@ -292,6 +454,8 @@ end
 -- programmed by epiccooldog
 
 function generate_maze(width, height, seed)
+    width = math.floor(width / 2)
+    height = math.floor(height / 2) 
     math.randomseed(seed) -- sets the math.random seed
 
     local direction_maze = {} -- maze saved as directions of paths
