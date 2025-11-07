@@ -216,6 +216,8 @@ end
 
 
 function love.update(dt)
+    local indices_to_remove = {}
+    local monsters_to_remove = {}
     success = love.audio.play(sound.music)
     if not running then
         goto finish
@@ -449,26 +451,8 @@ function love.update(dt)
         inputFlag.use = false
     end
 
-    -- vvvmove this code snippet to the bottom of the update functionvvv
-    local state = isMoving and "move" or "idle"
-    local playerAnimation = "empty"
-    if player.heldItem.item ~= "empty" then
-        playerAnimation = player.heldItem.item.playerAnim
-    end
-    player.anim = player.animations[playerAnimation]["torch"..math.ceil(player.torchLevel)][state][player.dir]
-    state = nil
-    player.anim:update(dt)
-    player.attack.slash_animation:update(dt)
-    
-    monsters.zombie.animations.down:update(dt)
-    monsters.zombie.animations.up:update(dt)
-    monsters.zombie.animations.left:update(dt)
-    monsters.zombie.animations.right:update(dt)
-    -- ^^^move this code snippet to the bottom of the update function^^^
-
     -- monster ai
 
-    local monsters_to_remove = {}--move this line to the top of update function
 
     for x=1, #loaded_monsters do --this is general monster ai but only works for zombies
         local monster = loaded_monsters[x]
@@ -539,7 +523,6 @@ function love.update(dt)
         death_time = os.time()
     end
 
-    local indices_to_remove = {} -- move this line to the top of the update function
     --print(#player.bullets)
     for x=1, #player.bullets do
         local bullet = player.bullets[x]
@@ -594,10 +577,22 @@ function love.update(dt)
 
     update_shadows()
     ::finish::
-    if #monsters == 0 then
-        running = false
-        ending = 1
+    -- vvvmove this code snippet to the bottom of the update functionvvv
+    local state = isMoving and "move" or "idle"
+    local playerAnimation = "empty"
+    if player.heldItem.item ~= "empty" then
+        playerAnimation = player.heldItem.item.playerAnim
     end
+    player.anim = player.animations[playerAnimation]["torch"..math.ceil(player.torchLevel)][state][player.dir]
+    state = nil
+    player.anim:update(dt)
+    player.attack.slash_animation:update(dt)
+    
+    monsters.zombie.animations.down:update(dt)
+    monsters.zombie.animations.up:update(dt)
+    monsters.zombie.animations.left:update(dt)
+    monsters.zombie.animations.right:update(dt)
+    -- ^^^move this code snippet to the bottom of the update function^^^
 end
 
 
