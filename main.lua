@@ -12,11 +12,9 @@ running = true
 debugCounter = 0
 debugString = {}
 start_time = os.time()
-mouse_down = false
-first_mouse_down_frame = false
 
 function love.load()
-    inputFlag={i1=false,i2=false,i3=false}
+    inputFlag={i1=false,i2=false,i3=false,mouse=false}
     -- touch variables
     Tid,Tx,Ty,Tp = 0,0,0,0
     -- loads in anim8 library
@@ -60,7 +58,7 @@ function love.load()
     player.torchLevel = 4
 
     player.bullets = {}
-    items.bullet = {texture = love.graphics.newImage("itemTextures/bullet.png"), max_stack_size = 16, speed = 1/2, playerANim="empty"}
+    items.bullet = {texture = love.graphics.newImage("itemTextures/bullet-item.png"),draw_texture = love.graphics.newImage("itemTextures/bullet.png"), max_stack_size = 16, speed = 1/2, playerAnim="empty"}
 
     player.health = {}
     player.health.max = 6 -- probably want to change this for balance
@@ -107,7 +105,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
-    player.heldItem = {item=items.coal, amount=5}
+    player.heldItem = {item=items.gun, amount=1}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -118,7 +116,7 @@ function love.load()
 
     -- just for testing
     player.inventory.contents[1] = {item=items.coal, amount=6}
-    player.inventory.contents[2] = {item=items.coal, amount=2}
+    player.inventory.contents[2] = {item=items.bullet, amount=16}
     player.inventory.contents[3] = {item=items.gun, amount=1}
 
     -- setting up player animatons; if it works dont break it
@@ -293,13 +291,25 @@ function love.update(dt)
         inputFlag.i3 = false
     end
 
-    if love.mouse.isDown() then
-        if mouse_down ~= true then
-            mouse_down = true
-            first_mouse_down_frame = true
-        else
-            first_mouse_down_frame = false
+    if love.mouse.isDown(1) then
+        if inputFlag.mouse == false then
+            inputFlag.mouse = true
+            if player.heldItem.item == items.gun then
+                for x = 1, #player.inventory.contents do
+                    if player.inventory.contents[x].item == items.bullet then
+                        player.inventory.contents[x].amount = player.inventory.contents[x].amount - 1
+                        if player.inventory.contents[x].amount == 0 then
+                            player.inventory.contents[x] = {item="empty", amount=nil}
+                        end
+                        table.insert(player.bullets, {direction=player.dir, x=player.x, y=player.y})
+                        goto continue
+                    end
+                end
+            ::continue::
+            end
         end
+    else
+        inputFlag.mouse = false
     end
 
     -- obvious stuff
@@ -379,8 +389,10 @@ function love.update(dt)
         end
     end
 
-    for x=1, #monsters_to_remove do
-        table.remove(loaded_monsters, x)
+    table.sort(monsters_to_remove, function(a, b) return a > b end)
+    for _, idx in ipairs(monsters_to_remove) do
+        table.remove(loaded_monsters, idx)
+        print("removing monster")
     end
 
     if player.health.current <= 0 then
@@ -390,54 +402,54 @@ function love.update(dt)
         death_time = os.time()
     end
 
+    local indices_to_remove = {}
+    --print(#player.bullets)
     for x=1, #player.bullets do
         local bullet = player.bullets[x]
 
-        local indices_to_remove = {}
+        --print("x: "..bullet.x.." y: "..bullet.y)
 
         if bullet.direction == "up" then
-            if get_tile(bullet.x, bullet.y-bullet.speed) == 0 then
-                bullet.y = bullet.y - bullet.speed
+            if get_tile(bullet.x, bullet.y-items.bullet.speed, mapData) == 0 then
+                bullet.y = bullet.y - items.bullet.speed
             else
                 table.insert(indices_to_remove, x)
             end
         elseif bullet.direction == "down" then
-            if get_tile(bullet.x, bullet.y+bullet.speed) == 0 then
-                bullet.y = bullet.y + bullet.speed
+            if get_tile(bullet.x, bullet.y+items.bullet.speed, mapData) == 0 then
+                bullet.y = bullet.y + items.bullet.speed
             else
                 table.insert(indices_to_remove, x)
             end
         elseif bullet.direction == "left" then
-            if get_tile(bullet.x-bullet.speed, bullet.y) == 0 then
-                bullet.x = bullet.x - bullet.speed
+            if get_tile(bullet.x-items.bullet.speed, bullet.y, mapData) == 0 then
+                bullet.x = bullet.x - items.bullet.speed
             else
                 table.insert(indices_to_remove, x)
             end
         elseif bullet.direction == "right" then
-            if get_tile(bullet.x+bullet.speed, bullet.y) == 0 then
-                bullet.x = bullet.x + bullet.speed
+            if get_tile(bullet.x+items.bullet.speed, bullet.y, mapData) == 0 then
+                bullet.x = bullet.x + items.bullet.speed
             else
                 table.insert(indices_to_remove, x)
             end
         end
 
-        for y=1, #indices_to_remove do
-            table.remove(player.bullets, y)
-        end
-
         for y=1, #loaded_monsters do
-            local monster = loaded_monsters[x]
+            local monster = loaded_monsters[y]
 
-            if math.abs(bullet.x-monster.x) < 0.5 and math.abs(bullet.x-monster.x+1) < 0.5 and math.abs(bullet.y-monster.y) < 0.5 and math.abs(bullet.y-monster.y+1) < 0.5 then
+            if math.abs(bullet.x - (monster.x + 0.5)) < 0.5 and math.abs(bullet.y - (monster.y + 0.5)) < 0.5 then
                 monster.health = monster.health - 20
+                table.insert(indices_to_remove, x)
+                print("monster hit :O")
             end 
         end
     end
 
-    if mouse_down and first_mouse_down_frame and player.heldItem.item == items.gun then
-        table.insert(player.bullets, {direction=player.direction, x=player.x, y=player.y})
+    table.sort(indices_to_remove, function(a, b) return a > b end)
+    for _, idx in ipairs(indices_to_remove) do
+        table.remove(player.bullets, idx)
     end
-
     ::finish::
 end
 
@@ -469,7 +481,7 @@ function love.draw()
     for x = 1, #loaded_monsters do
         local monster = loaded_monsters[x]
         if math.abs(monster.x - player.x) < 10 and math.abs(monster.y - player.y) < 10 then
-            print(monster.direction)
+            -- print(monster.direction)
             --love.graphics.draw(monster.monster.texture, (monster.x - camX) * 16 * scaleX, (monster.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
             if monster.direction == "up" then
                 monster.monster.animations.up:draw(monster.monster.spritesheet, (monster.x-camX)*16*scaleX, (monster.y-camY)*16*scaleY, nil, scaleX, scaleY)
@@ -483,7 +495,9 @@ function love.draw()
         end
     end
 
-    -- draw bullets here
+    for _, bullet in ipairs(player.bullets) do
+        love.graphics.draw(items.bullet.draw_texture, (bullet.x - camX) * 16 * scaleX, (bullet.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
+    end
 
     local currentSheet = player.spritesheets.empty
     if player.heldItem.item ~= "empty" then
@@ -499,13 +513,14 @@ function love.draw()
         end
     end
     love.graphics.setColor(1,1,1,1)
-    love.graphics.print("camera: "..math.floor(camX).." "..math.floor(camY),0,0)
-    love.graphics.print("player: "..math.floor(player.x).." "..math.floor(player.y),0,10)
-    love.graphics.print("window size: "..width.." "..height,0,20)
-    love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
-    love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
-    love.graphics.print(debugCounter,0,50)
-    love.graphics.print(debugString,0,60)
+    --love.graphics.print("camera: "..math.floor(camX).." "..math.floor(camY),0,0)
+    --love.graphics.print("player: "..math.floor(player.x).." "..math.floor(player.y),0,10)
+    --love.graphics.print("window size: "..width.." "..height,0,20)
+    --love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
+    --love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
+    --love.graphics.print(debugCounter,0,50)
+    --love.graphics.print(debugString,0,60)
+    love.graphics.print("Number of alive monsters: "..#loaded_monsters)
 
 
     love.graphics.setFont(big_font)
@@ -752,9 +767,10 @@ end
 function get_tile(x, y, maze)
     local tile_x = math.floor(x)
     local tile_y = math.floor(y)
-
+    if tile_y < 1 or tile_y > #maze or tile_x < 1 or tile_x > #maze[1] then
+        return 1
+    end
     local tile = maze[tile_y][tile_x]
-
     return tile
 end
 
