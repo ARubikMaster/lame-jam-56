@@ -31,7 +31,10 @@ sound.torchignite = love.audio.newSource("sound/torchignite.mp3", "static")
 sound.torchloop = love.audio.newSource("sound/torchloop.mp3", "static")
 function love.load()
     gunDelay = 0
-    inputFlag={i1=false,i2=false,i3=false,Use=false}
+    swordDelay = 0
+    swordswing = 0
+    stepDelay = 0
+    inputFlag={i1=false,i2=false,i3=false,Use=false,iQ=false}
     -- touch variables
     Tid,Tx,Ty,Tp = 0,0,0,0
     -- loads in anim8 library
@@ -55,7 +58,7 @@ function love.load()
     items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
     items.flag = {id=2, texture=love.graphics.newImage("itemTextures/flag.png"), max_stack_size=32, playerAnim="empty"}
-    items.bread = {id=2, texture=love.graphics.newImage("itemTextures/bread.png"), max_stack_size=8, playerAnim="empty"}
+    items.bread = {id=2, texture=love.graphics.newImage("itemTextures/bread.png"), max_stack_size=4, playerAnim="empty"}
     items.sword = {id=2, texture=love.graphics.newImage("itemTextures/sword.png"), max_stack_size=1, playerAnim="sword"}
 
     monsters = {}
@@ -98,6 +101,34 @@ function love.load()
 
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
     create_cross_paths(500)
+    floorItems = {}
+    for y=1, #mapData do
+        floorItems[y] = {}
+        for x=1, #mapData[1] do
+            rand = love.math.random(1,1000)
+            if mapData[y][x] == 0 then
+                if rand == 1 then
+                    floorItems[y][x] = {item=items.sword, amount=1}
+                elseif rand == 2 then
+                    floorItems[y][x] = {item=items.gun, amount=1}
+                elseif rand > 2 and rand <= 4 then
+                    floorItems[y][x] = {item=items.bullet, amount=love.math.random(1,8)}
+                elseif rand > 4 and rand <= 10 then
+                    floorItems[y][x] = {item=items.flag, amount=love.math.random(1,16)}
+                elseif rand > 10 and rand <= 16 then
+                    floorItems[y][x] = {item=items.bread, amount=love.math.random(1,2)}
+                elseif rand > 16 and rand <= 22 then
+                    floorItems[y][x] = {item=items.coal, amount=love.math.random(1,4)}
+                else
+                    floorItems[y][x] = {item="empty", amount=nil}
+                end
+            else
+                floorItems[y][x] = {item="empty", amount=nil}
+            end
+        end
+    end
+
+
 
     for y = 0, 3 do
         for x = 0, 3 do
@@ -125,7 +156,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
-    player.heldItem = {item=items.coal, amount=1}
+    player.heldItem = {item=items.sword, amount=1}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -247,6 +278,9 @@ function love.update(dt)
         end
     end
 
+    if isMoving = true and love.timer.getTime() - stepDelay > .2 then
+        love.audio.play(footstep[love.math.random(1,5)])
+
     if love.keyboard.isDown("1") then --the key and item index are opposite and its YOUR FAULT EPIC -SpaceKiwi
         if inputFlag.i1 == false then
             if player.heldItem.item == player.inventory.contents[3].item then
@@ -313,12 +347,34 @@ function love.update(dt)
     else
         inputFlag.i3 = false
     end
+        if love.keyboard.isDown("q") then
+        if inputFlag.iQ == false then
+            if player.heldItem.item == floorItems[math.floor(player.y)][math.floor(player.x)] then
+                if player.heldItem.item ~= "empty" then
+                    local temp = floorItems[math.floor(player.y)][math.floor(player.x)]
+                    floorItems[math.floor(player.y)][math.floor(player.x)].amount = math.min(floorItems[math.floor(player.y)][math.floor(player.x)].amount + player.heldItem.amount, floorItems[math.floor(player.y)][math.floor(player.x)].item.max_stack_size)
+                    player.heldItem.amount = math.max(player.heldItem.amount - (floorItems[math.floor(player.y)][math.floor(player.x)].amount - temp),0)
+                    if player.heldItem.amount == 0 then
+
+                    end                        player.heldItem = {item="empty", amount=nil}
+                    inputFlag.iQ = true
+                end
+            else
+                local temp = player.heldItem
+                player.heldItem = floorItems[math.floor(player.y)][math.floor(player.x)]
+                floorItems[math.floor(player.y)][math.floor(player.x)] = temp
+                inputFlag.iQ = true
+            end
+        end
+    else
+        inputFlag.iQ = false
+    end
 
     if love.keyboard.isDown("e") then
         if inputFlag.use == false then
             inputFlag.use = true
             if player.heldItem.item == items.gun then
-                if love.timer.getTime() - gunDelay > .8 then
+                if love.timer.getTime() - gunDelay > .6 then
                     gunDelay = love.timer.getTime()
                     for x = 1, #player.inventory.contents do
                         if player.inventory.contents[x].item == items.bullet then
@@ -336,9 +392,39 @@ function love.update(dt)
             end
             if player.heldItem.item == items.coal then
                 player.torchLevel = 4
-                player.heldItem.item.amount = player.heldItem.item.amount - 1
-                if player.heldItem.item.amount == 0 then
+                player.heldItem.amount = player.heldItem.amount - 1
+                if player.heldItem.amount == 0 then
                     player.heldItem = {item="empty", amount=nil}
+                end
+            end
+            if player.heldItem.item == items.bread then
+                player.health.current = player.health.current + 1
+                player.heldItem.amount = player.heldItem.amount - 1
+                if player.heldItem.amount == 0 then
+                    player.heldItem = {item="empty", amount=nil}
+                end
+            end
+            if player.heldItem.item == items.sword then
+                if love.timer.getTime() - swordDelay > 1 then
+                    love.audio.play(sound.swingsword)
+                    swordswing = love.timer.getTime()
+                    swordDelay = love.timer.getTime()
+                    for y=1, #loaded_monsters do
+                        local monster = loaded_monsters[y]
+                        if math.abs(player.x - (monster.x + 0.5)) < 1.25 and math.abs(player.y - (monster.y + 0.5)) < 1.25 then
+                            monster.health = monster.health - 1
+                            love.audio.play(sound.hit)
+                            local pushX = 0 - ((player.x - (monster.x + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
+                            if get_tile(monster.x + pushX + 0.25, monster.y + 0.25, mapData) == 0 and get_tile(monster.x + pushX + 0.75, monster.y + 0.75, mapData) == 0 then
+                                monster.x = monster.x + pushX
+                            end
+                            local pushY = 0 - ((player.y - (monster.y + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
+                            if get_tile(monster.x + 0.25, monster.y + pushX + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + pushX + 0.75, mapData) == 0 then
+                                monster.y = monster.y + pushY
+                            end
+                            goto continue
+                        end 
+                    end
                 end
             end
         ::continue::
@@ -478,9 +564,11 @@ function love.update(dt)
                 table.insert(indices_to_remove, x)
                 love.audio.play(sound.hit)
                 print("monster hit :O")
+                goto exit
             end 
         end
     end
+    ::exit::
 
     table.sort(indices_to_remove, function(a, b) return a > b end)
     for _, idx in ipairs(indices_to_remove) do
@@ -513,6 +601,9 @@ function love.draw()
         for x=0, width do
             -- TODO: only draw walls close to player to get more of them fps
             love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
+            if floorItems[math.floor(y+camY)][math.floor(x+camX)].item ~= "empty" then
+                love.graphics.draw(floorItems[math.floor(y+camY)][math.floor(x+camX)].item.texture,tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY)
+            end
         end
     end
 
@@ -541,7 +632,31 @@ function love.draw()
         currentSheet = player.spritesheets[player.heldItem.item.playerAnim]
     end
     player.anim:draw(currentSheet, (player.x-camX)*16*scaleX-(6.5*scaleX), (player.y-camY)*16*scaleY-(8*scaleY),nil,scaleX,scaleY)
-    --player.attack.slash_animation:draw(player.attack.slash_spritesheet, (player.x-camX)*16*scaleX - (6.5*scaleX), (player.y-camY)*16*scaleY - (8*scaleY), nil, scaleX, scaleY)
+    local dir = 0
+    local offsetX = 0
+    local offsetY = 0
+    
+        if player.dir == "right" then
+            dir = math.rad(0)
+            offsetX = .5
+            offsetY = 0
+        elseif player.dir == "left" then
+            dir = math.rad(180)
+            offsetX = .5
+            offsetY = 1
+        elseif player.dir == "up" then
+            dir = math.rad(-90)
+            offsetX = 0
+            offsetY = .5
+        elseif player.dir == "down" then
+            dir = math.rad(90)
+            offsetX = 1
+            offsetY = .5
+        end
+    
+    if love.timer.getTime() - swordswing < .25 then
+        player.attack.slash_animation:draw(player.attack.slash_spritesheet, (player.x-camX+offsetX)*16*scaleX - (6.5*scaleX), (player.y-camY+offsetY)*16*scaleY - (8*scaleY), dir, scaleX, scaleY)
+    end
     -- drawing lighting that idk how it works and prob will be replaced soon
     for y=1, height*16/16 do
         for x=1, width*16/16 do
@@ -556,7 +671,9 @@ function love.draw()
     --love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
     --love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
     --love.graphics.print(debugCounter,0,50)
-    --love.graphics.print(debugString,0,60)
+    if floorItems[1][1].item ~= "empty" then
+        love.graphics.print(tostring(floorItems[1][1].item.texture),0,60)
+    end
     love.graphics.print("Number of alive monsters: "..#loaded_monsters)
 
 
