@@ -31,6 +31,7 @@ sound.torchignite = love.audio.newSource("sound/torchignite.mp3", "static")
 sound.torchloop = love.audio.newSource("sound/torchloop.mp3", "static")
 function love.load()
     ending = 0
+    endingTimer = 0
     gunDelay = 0
     swordDelay = 0
     swordswing = 0
@@ -59,9 +60,10 @@ function love.load()
     items = {}
     items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
-    items.flag = {id=2, texture=love.graphics.newImage("itemTextures/flag.png"), max_stack_size=32, playerAnim="empty"}
-    items.bread = {id=2, texture=love.graphics.newImage("itemTextures/bread.png"), max_stack_size=4, playerAnim="empty"}
-    items.sword = {id=2, texture=love.graphics.newImage("itemTextures/sword.png"), max_stack_size=1, playerAnim="sword"}
+    items.flag = {id=3, texture=love.graphics.newImage("itemTextures/flag.png"), max_stack_size=32, playerAnim="empty"}
+    items.bread = {id=4, texture=love.graphics.newImage("itemTextures/bread.png"), max_stack_size=4, playerAnim="empty"}
+    items.sword = {id=5, texture=love.graphics.newImage("itemTextures/sword.png"), max_stack_size=1, playerAnim="sword"}
+    items.goldKey = {id="nil", texture=love.graphics.newImage("itemTextures/GoldKey.png"),max_stack_size=1, playerAnim="empty"}
 
     monsters = {}
     monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=1, speed=1/20, health=20}
@@ -83,7 +85,7 @@ function love.load()
     player.torchLevel = 4
 
     player.bullets = {}
-    items.bullet = {texture = love.graphics.newImage("itemTextures/bullet-item.png"),draw_texture = love.graphics.newImage("itemTextures/bullet.png"), max_stack_size = 16, speed = 1/2, playerAnim="empty"}
+    items.bullet = {id=6, texture = love.graphics.newImage("itemTextures/bullet-item.png"),draw_texture = love.graphics.newImage("itemTextures/bullet.png"), max_stack_size = 16, speed = 1/2, playerAnim="empty"}
 
     player.health = {}
     player.health.max = 6 -- probably want to change this for balance
@@ -92,14 +94,9 @@ function love.load()
     player.health.half_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_half.png")
     player.health.empty_heart_texture = love.graphics.newImage("uiTextures/Maze_Heart_empty.png")
 
-    chest = {}
-    chest.inventory = {}
-    chest.inventory.contents = {}
-    chest.inventory.slot_number = #items
 
-    for key, item1 in pairs(items) do
-        chest.inventory.contents[key] = {item=item1, amount=0}
-    end
+
+
 
     mapData = generate_maze(mazeWidth, mazeHeight, seed) -- generates a maze
     create_cross_paths(500)
@@ -129,9 +126,23 @@ function love.load()
             end
         end
     end
+    chest = {}
+    chest.x = 0
+    chest.y = 0
+    chest.texture = {}
+    chest.texture.closed = love.graphics.newImage("wallTextures/GoldChestClosed.png")
+    chest.texture.open = love.graphics.newImage("wallTextures/GoldChestOpen.png")
+    chest.state = "closed"
+    repeat
+        chest.x,chest.y = love.math.random(2,#mapData[1]),love.math.random(2,#mapData)
+    until mapData[chest.y][chest.x] == 0
+    chest.x,chest.y = math.floor(mazeHeight/2),math.floor(mazeWidth/2)
 
-
-
+    local keyX,keyY = 0,0
+    repeat
+        keyX,keyY=love.math.random(2,#mapData),love.math.random(2,#mapData[1])
+    until mapData[keyX][keyY] == 0
+    floorItems[keyX][keyY] = {item="goldKey", amount=1}
     for y = 0, 3 do
         for x = 0, 3 do
             mapData[(mazeHeight/2) + y][(mazeWidth/2) + x] = 0
@@ -168,7 +179,7 @@ function love.load()
     end
 
     -- just for testing
-    player.inventory.contents[1] = {item=items.coal, amount=6}
+    player.inventory.contents[1] = {item=items.goldKey, amount=1}
     player.inventory.contents[2] = {item=items.bullet, amount=16}
     player.inventory.contents[3] = {item=items.gun, amount=1}
 
@@ -577,7 +588,6 @@ function love.update(dt)
 
     update_shadows()
     ::finish::
-    -- vvvmove this code snippet to the bottom of the update functionvvv
     local state = isMoving and "move" or "idle"
     local playerAnimation = "empty"
     if player.heldItem.item ~= "empty" then
@@ -592,7 +602,6 @@ function love.update(dt)
     monsters.zombie.animations.up:update(dt)
     monsters.zombie.animations.left:update(dt)
     monsters.zombie.animations.right:update(dt)
-    -- ^^^move this code snippet to the bottom of the update function^^^
 end
 
 
@@ -619,6 +628,9 @@ function love.draw()
             love.graphics.draw(wallTextures[mapData[math.floor(y+camY)][math.floor(x+camX)]+1],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY) -- goofy drawing for math
             if floorItems[math.floor(y+camY)][math.floor(x+camX)].item ~= "empty" then
                 love.graphics.draw(floorItems[math.floor(y+camY)][math.floor(x+camX)].item.texture,tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY)
+            end
+            if chest.x == math.floor(x+camX) and chest.y == math.floor(y+camY) then
+                love.graphics.draw(chest.texture[chest.state],tiles_to_pixels(x,"X"),tiles_to_pixels(y,"Y"),0,scaleX,scaleY)
             end
         end
     end
@@ -686,8 +698,8 @@ function love.draw()
     --love.graphics.print("window size: "..width.." "..height,0,20)
     --love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
     --love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
-    love.graphics.print(tostring(isMoving),0,50)
-    love.graphics.print("Number of alive monsters: "..#loaded_monsters)
+    --love.graphics.print(tostring(isMoving),0,50)
+    --love.graphics.print("Number of alive monsters: "..#loaded_monsters)
 
 
     love.graphics.setFont(big_font)
@@ -727,13 +739,78 @@ function love.draw()
     if not player.alive then
         love.graphics.setFont(font_ultra_pro_max_5g_z_flip)
         local font_h = font_ultra_pro_max_5g_z_flip:getHeight() * scaleY
-        love.graphics.printf("U ded :(\n" .. math.floor((death_time-start_time)/60*100)/100 .. "min", 0, (love.graphics.getHeight() - font_h*2) / 2, love.graphics.getWidth()/scaleX, "center", 0, scaleX, scaleY, 0, 0, 0, 0)
+        love.graphics.printf("YOU DIED\n" .. math.floor((death_time-start_time)/60*100)/100 .. "min", 0, (love.graphics.getHeight() - font_h*2) / 2, love.graphics.getWidth()/scaleX, "center", 0, scaleX, scaleY, 0, 0, 0, 0)
         love.graphics.setFont(font)
     end
 
     if Tid ~= 0 then
         love.graphics.setColor(1,1,1,.25)
         love.graphics.rectangle("fill",love.graphics.getWidth()*.5,love.graphics.getHeight()*.5,love.graphics.getWidth()*.5,love.graphics.getHeight()*.5)
+    end
+
+    if ending == 1 then
+        endingTimer = endingTimer + 1
+        if endingTimer > 60 then
+            chest.state= "open"
+            love.audio.stop()
+        end
+        if endingTimer == 120 then
+             wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")}
+        end
+        if endingTimer > 180 then
+            love.graphics.setColor(.25,.5,1,1)
+            love.graphics.rectangle("fill",love.graphics.getWidth()/2-100*scaleX,love.graphics.getHeight()/2-75*scaleY,love.graphics.getWidth()/2+100,love.graphics.getHeight()/2+75)
+        end
+        if endingTimer > 190 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("FATAL ERROR",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-65*scaleY)
+        end
+        if endingTimer > 200 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Key.Id = nil",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-60*scaleY)
+        end
+        if endingTimer > 210 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("FAE-guard #1 fail",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-55*scaleY)
+        end
+        if endingTimer > 220 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("FAE-guard #2 fail",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-50*scaleY)
+        end
+        if endingTimer > 230 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("FAE-guard #3 fail",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-45*scaleY)
+        end
+        if endingTimer > 240 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("GPU temperature overload (792°C)",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-40*scaleY)
+        end
+        if endingTimer > 250 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Emergency coolant activated",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-35*scaleY)
+        end
+        if endingTimer > 260 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Emergency coolant leak detected",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-30*scaleY)
+        end
+        if endingTimer > 270 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Attempting simulacrum shutdown",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-25*scaleY)
+        end
+        if endingTimer > 280 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Simulacrum shutdown failed",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-20*scaleY)
+        end
+        if endingTimer > 290 then
+            love.graphics.setColor(1,1,1,1)
+            love.graphics.print("Emergency neural disconnect protocol activated",love.graphics.getWidth()/2-90*scaleX,love.graphics.getHeight()/2-15*scaleY)
+        end
+        if endingTimer > 300 then
+            local t = {}
+            while true do
+                table.insert(t, string.rep("a", 1024 * 1024)) -- Crashes game :P
+            end
+        end
     end
 end
 

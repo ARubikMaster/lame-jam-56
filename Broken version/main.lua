@@ -1081,4 +1081,3 @@ function create_cross_paths(amount)
         end
     end
 end
-end
