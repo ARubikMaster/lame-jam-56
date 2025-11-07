@@ -30,10 +30,12 @@ sound.torchextenguish = love.audio.newSource("sound/torchextenguish.mp3", "stati
 sound.torchignite = love.audio.newSource("sound/torchignite.mp3", "static")
 sound.torchloop = love.audio.newSource("sound/torchloop.mp3", "static")
 function love.load()
+    ending = 0
     gunDelay = 0
     swordDelay = 0
     swordswing = 0
     stepDelay = 0
+    stepidx = 0
     inputFlag={i1=false,i2=false,i3=false,Use=false,iQ=false}
     -- touch variables
     Tid,Tx,Ty,Tp = 0,0,0,0
@@ -239,7 +241,7 @@ function love.update(dt)
     lights[1][3]=.2 + player.torchLevel*.1
 
 
-    local isMoving = false
+    isMoving = false
 
 
     -- moving down and checking if you can
@@ -253,11 +255,14 @@ function love.update(dt)
 
     -- moving up and checking if you can
     if love.keyboard.isDown("w") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
-            player.dir = "up"
-        if get_tile(player.x, player.y - 1/8, mapData) == 0 then
-            player.y = player.y - 1/16
-            isMoving = true
+            if get_tile(player.x, player.y - 1/8, mapData) == 0 then
+                player.y = player.y - 1/16
+                isMoving = true
+            end
+        if  player.dir == "down" then
+            isMoving = false
         end
+        player.dir = "up"
     end
 
     -- moving right and checking if you can
@@ -271,15 +276,24 @@ function love.update(dt)
 
     -- moving left and checking if you can
     if love.keyboard.isDown("a") or Tx < love.graphics.getWidth()*.6 and Tx > love.graphics.getWidth()*.5 and Ty > love.graphics.getHeight()*.5 then 
-            player.dir = "left"
-        if get_tile(player.x - 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/8, player.y, mapData) == 0 then
-            player.x = player.x - 1/16
-            isMoving = true
+            if get_tile(player.x - 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/8, player.y, mapData) == 0 then
+                player.x = player.x - 1/16
+                isMoving = true
+            end
+        if player.dir == "right" then
+            isMoving = false
         end
+        player.dir = "left"
     end
 
-    if isMoving = true and love.timer.getTime() - stepDelay > .2 then
-        love.audio.play(footstep[love.math.random(1,5)])
+    if isMoving == true and love.timer.getTime() - stepDelay > .4 then
+        stepidx = stepidx + 1
+        if stepidx > 5 then
+            stepidx = 1
+        end
+        love.audio.play(sound.footstep[stepidx])
+        stepDelay = love.timer.getTime()
+    end
 
     if love.keyboard.isDown("1") then --the key and item index are opposite and its YOUR FAULT EPIC -SpaceKiwi
         if inputFlag.i1 == false then
@@ -354,9 +368,10 @@ function love.update(dt)
                     local temp = floorItems[math.floor(player.y)][math.floor(player.x)]
                     floorItems[math.floor(player.y)][math.floor(player.x)].amount = math.min(floorItems[math.floor(player.y)][math.floor(player.x)].amount + player.heldItem.amount, floorItems[math.floor(player.y)][math.floor(player.x)].item.max_stack_size)
                     player.heldItem.amount = math.max(player.heldItem.amount - (floorItems[math.floor(player.y)][math.floor(player.x)].amount - temp),0)
+                    love.audio.play(sound.itempickup)
                     if player.heldItem.amount == 0 then
-
-                    end                        player.heldItem = {item="empty", amount=nil}
+                        player.heldItem = {item="empty", amount=nil}
+                    end                        
                     inputFlag.iQ = true
                 end
             else
@@ -364,6 +379,7 @@ function love.update(dt)
                 player.heldItem = floorItems[math.floor(player.y)][math.floor(player.x)]
                 floorItems[math.floor(player.y)][math.floor(player.x)] = temp
                 inputFlag.iQ = true
+                love.audio.play(sound.itempickup)
             end
         end
     else
@@ -577,6 +593,10 @@ function love.update(dt)
 
     update_shadows()
     ::finish::
+    if #monsters == 0 then
+        running == false
+        ending = 1
+    end
 end
 
 
@@ -670,10 +690,7 @@ function love.draw()
     --love.graphics.print("window size: "..width.." "..height,0,20)
     --love.graphics.print("Touch pressed: ID " .. Tid .. " at (" .. Tx .. ", " .. Ty .. ") pressure:" .. Tp,0,30)
     --love.graphics.print("FPS: "..love.timer.getFPS(),0,40)
-    --love.graphics.print(debugCounter,0,50)
-    if floorItems[1][1].item ~= "empty" then
-        love.graphics.print(tostring(floorItems[1][1].item.texture),0,60)
-    end
+    love.graphics.print(tostring(isMoving),0,50)
     love.graphics.print("Number of alive monsters: "..#loaded_monsters)
 
 
