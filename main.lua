@@ -217,28 +217,52 @@ end
 
 function love.update(dt)
     success = love.audio.play(sound.music)
-    if not running then 
-            isMoving = false
-        end
-        player.dir = "up"
+    if not running then
+        goto finish
     end
+
+    player.torchLevel = player.torchLevel - .001
+    player.torchLevel = math.max(player.torchLevel,1)
+    -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
+    -- just setting the shadowData table to be all black so the shadow script can brighten it up later -SpaceKiwi
+    lights = {}
+    shadowData = {}
+    for y=0, height*16/16 do
+        local line = {}
+        for x=0, width*16/16 do
+            table.insert(line,1)
+        end
+        table.insert(shadowData,line)
+    end
+    -- adding the light at the players location
+    table.insert(lights,{0,0,0})
+    lights[1][1]=player.x
+    lights[1][2]=player.y
+    lights[1][3]=.2 + player.torchLevel*.1
+
+
+    isMoving = false
+
 
     -- moving down and checking if you can
     if love.keyboard.isDown("s") or Ty > love.graphics.getHeight()*.9 and Tx > love.graphics.getWidth()*.5 then 
+           player.dir = "down"
         if get_tile(player.x, player.y + 1/8 + 0.45, mapData) == 0 then
            player.y = player.y + 1/16
-           player.dir = "down"
            isMoving = true
         end
     end
 
     -- moving up and checking if you can
     if love.keyboard.isDown("w") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
-        if get_tile(player.x, player.y - 1/8, mapData) == 0 then
-            player.y = player.y - 1/16
-            player.dir = "up"
-            isMoving = true
+            if get_tile(player.x, player.y - 1/8, mapData) == 0 then
+                player.y = player.y - 1/16
+                isMoving = true
+            end
+        if  player.dir == "down" then
+            isMoving = false
         end
+        player.dir = "up"
     end
 
     -- moving right and checking if you can
