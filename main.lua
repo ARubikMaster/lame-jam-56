@@ -1,7 +1,6 @@
 -- Goofy Game
 
 scaleX,scaleY = 3,3-- universal scale values
-success = love.window.setMode(320*scaleX,240*scaleY,{}) -- creates window
 width,height = love.graphics.getWidth()/16, love.graphics.getHeight()/16
 fogFactor = .15
 mazeWidth, mazeHeight = 200, 200
@@ -210,12 +209,12 @@ function love.load()
     shadowData = {}
 
     for x = 1, monsters_amount do
-        ::retry::
-        local posX = math.random(1, mazeWidth)
-        local posY = math.random(1, mazeHeight)
-        if get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6) then
-            goto retry
-        end
+        local posX
+        local posxY
+        repeat
+            posX = math.random(1, mazeWidth)
+            posY = math.random(1, mazeHeight)
+        until get_tile(posX, posY, mapData) == 1 or (math.abs(player.x - posX) <= 6 and math.abs(player.y - posY) <= 6)
         table.insert(loaded_monsters, {monster=monsters.zombie, x=posX, y=posY, health=3, last_attack=os.time(), direction="up"})
     end
 end
@@ -223,12 +222,12 @@ end
 
 
 function love.update(dt)
+    local continue = 1
     local monsters_to_remove = {}
     local indices_to_remove = {}
 
-    if not running then
-        goto finish
-    end
+    if running then
+    
     success = love.audio.play(sound.music)
     if player.torchLevel > 1 then
         love.audio.play(sound.torchloop)
@@ -407,6 +406,7 @@ function love.update(dt)
                 if love.timer.getTime() - gunDelay > .6 then
                     gunDelay = love.timer.getTime()
                     for x = 1, #player.inventory.contents do
+                        if continue == 1 then
                         if player.inventory.contents[x].item == items.bullet then
                             player.inventory.contents[x].amount = player.inventory.contents[x].amount - 1
                             if player.inventory.contents[x].amount == 0 then
@@ -415,7 +415,8 @@ function love.update(dt)
                             table.insert(player.bullets, {direction=player.dir, x=player.x, y=player.y})
                             love.audio.play(sound.gunshot)
                             table.insert(lights,{player.x,player.y,1})
-                            goto continue
+                            continue = 0
+                        end
                         end
                     end
                 end
@@ -476,24 +477,25 @@ function love.update(dt)
                     swordswing = love.timer.getTime()
                     swordDelay = love.timer.getTime()
                     for y=1, #loaded_monsters do
-                        local monster = loaded_monsters[y]
-                        if math.abs(player.x - (monster.x + 0.5)) < 1.25 and math.abs(player.y - (monster.y + 0.5)) < 1.25 then
-                            monster.health = monster.health - 1
-                            love.audio.play(sound.hit)
-                            local pushX = 0 - ((player.x - (monster.x + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
-                            if get_tile(monster.x + pushX + 0.25, monster.y + 0.25, mapData) == 0 and get_tile(monster.x + pushX + 0.75, monster.y + 0.75, mapData) == 0 then
-                                monster.x = monster.x + pushX
+                        if continue == 1 then
+                            local monster = loaded_monsters[y]
+                            if math.abs(player.x - (monster.x + 0.5)) < 1.25 and math.abs(player.y - (monster.y + 0.5)) < 1.25 then
+                                monster.health = monster.health - 1
+                                love.audio.play(sound.hit)
+                                local pushX = 0 - ((player.x - (monster.x + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
+                                if get_tile(monster.x + pushX + 0.25, monster.y + 0.25, mapData) == 0 and get_tile(monster.x + pushX + 0.75, monster.y + 0.75, mapData) == 0 then
+                                    monster.x = monster.x + pushX
+                                end
+                                local pushY = 0 - ((player.y - (monster.y + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
+                                if get_tile(monster.x + 0.25, monster.y + pushX + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + pushX + 0.75, mapData) == 0 then
+                                    monster.y = monster.y + pushY
+                                end
+                            continue = 0
                             end
-                            local pushY = 0 - ((player.y - (monster.y + 0.5)) / math.sqrt((player.x - (monster.x + 0.5))^2 + (player.y - (monster.y + 0.5))^2))
-                            if get_tile(monster.x + 0.25, monster.y + pushX + 0.25, mapData) == 0 and get_tile(monster.x + 0.75, monster.y + pushX + 0.75, mapData) == 0 then
-                                monster.y = monster.y + pushY
-                            end
-                            goto continue
                         end 
                     end
                 end
             end
-        ::continue::
         end
     else
         inputFlag.use = false
@@ -603,20 +605,21 @@ function love.update(dt)
             end
         end
         table.insert(lights,{bullet.x,bullet.y,.5})
-
+        exit = 1
         for y=1, #loaded_monsters do
+            if exit == 1 then
             local monster = loaded_monsters[y]
 
-            if math.abs(bullet.x - (monster.x + 0.5)) < 0.5 and math.abs(bullet.y - (monster.y + 0.5)) < 0.5 then
-                monster.health = monster.health - 20
-                table.insert(indices_to_remove, x)
-                love.audio.play(sound.hit)
-                print("monster hit :O")
-                goto exit
-            end 
+                if math.abs(bullet.x - (monster.x + 0.5)) < 0.5 and math.abs(bullet.y - (monster.y + 0.5)) < 0.5 then
+                    monster.health = monster.health - 20
+                    table.insert(indices_to_remove, x)
+                    love.audio.play(sound.hit)
+                    print("monster hit :O")
+                    exit = 0
+                end 
+            end
         end
     end
-    ::exit::
 
     table.sort(indices_to_remove, function(a, b) return a > b end)
     for _, idx in ipairs(indices_to_remove) do
@@ -624,7 +627,7 @@ function love.update(dt)
     end
 
     update_shadows()
-    ::finish::
+    end
     local state = isMoving and "move" or "idle"
     local playerAnimation = "empty"
     if player.heldItem.item ~= "empty" then
