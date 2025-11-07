@@ -29,6 +29,7 @@ sound.swingsword = love.audio.newSource("sound/swingsword.mp3", "static")
 sound.torchextenguish = love.audio.newSource("sound/torchextenguish.mp3", "static")
 sound.torchignite = love.audio.newSource("sound/torchignite.mp3", "static")
 sound.torchloop = love.audio.newSource("sound/torchloop.mp3", "static")
+sound.glitch = love.audio.newSource("sound/glitchsound.mp3", "static")
 function love.load()
     ending = 0
     endingTimer = 0
@@ -136,13 +137,12 @@ function love.load()
     repeat
         chest.x,chest.y = love.math.random(2,#mapData[1]),love.math.random(2,#mapData)
     until mapData[chest.y][chest.x] == 0
-    chest.x,chest.y = math.floor(mazeHeight/2),math.floor(mazeWidth/2)
 
     local keyX,keyY = 0,0
     repeat
         keyX,keyY=love.math.random(2,#mapData),love.math.random(2,#mapData[1])
     until mapData[keyX][keyY] == 0
-    floorItems[keyX][keyY] = {item="goldKey", amount=1}
+    floorItems[keyX][keyY] = {item=items.goldKey, amount=1}
     for y = 0, 3 do
         for x = 0, 3 do
             mapData[(mazeHeight/2) + y][(mazeWidth/2) + x] = 0
@@ -169,7 +169,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
-    player.heldItem = {item=items.sword, amount=1}
+    player.heldItem = {item="empty", amount=nil}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -177,11 +177,7 @@ function love.load()
     for x = 1, player.inventory.slot_number do
         player.inventory.contents[x] = {item="empty", amount=nil}
     end
-
-    -- just for testing
-    player.inventory.contents[1] = {item=items.goldKey, amount=1}
-    player.inventory.contents[2] = {item=items.bullet, amount=16}
-    player.inventory.contents[3] = {item=items.gun, amount=1}
+    player.inventory.contents[1] = {item="empty", amount=nil}
 
     -- setting up player animatons; if it works dont break it
     player.animations = {}
@@ -227,13 +223,18 @@ end
 
 
 function love.update(dt)
-    local indices_to_remove = {}
     local monsters_to_remove = {}
-    success = love.audio.play(sound.music)
+    local indices_to_remove = {}
+
     if not running then
         goto finish
     end
-
+    success = love.audio.play(sound.music)
+    if player.torchLevel > 1 then
+        love.audio.play(sound.torchloop)
+    else
+        love.audio.pause(sound.torchloop)
+    end
     player.torchLevel = player.torchLevel - .001
     player.torchLevel = math.max(player.torchLevel,1)
     -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
@@ -422,6 +423,7 @@ function love.update(dt)
             if player.heldItem.item == items.coal then
                 player.torchLevel = 4
                 player.heldItem.amount = player.heldItem.amount - 1
+                love.audio.play(sound.torchignite)
                 if player.heldItem.amount == 0 then
                     player.heldItem = {item="empty", amount=nil}
                 end
@@ -429,8 +431,43 @@ function love.update(dt)
             if player.heldItem.item == items.bread then
                 player.health.current = player.health.current + 1
                 player.heldItem.amount = player.heldItem.amount - 1
+                if love.math.random(1,100) ~= 1 then
+                    love.audio.play(sound.eat)
+                else
+                    love.audio.play(sound.rareEat)
+                end
                 if player.heldItem.amount == 0 then
                     player.heldItem = {item="empty", amount=nil}
+                end
+            end
+            if player.heldItem.item == items.flag then
+                if floorItems[math.floor(player.y)][math.floor(player.x)].item == "empty" then
+                    floorItems[math.floor(player.y)][math.floor(player.x)] = {item=items.flag, amount=1}
+                    player.heldItem.amount = player.heldItem.amount - 1
+                    love.audio.play(sound.itempickup)
+                    if player.heldItem.amount == 0 then
+                        player.heldItem = {item="empty", amount=nil}
+                    end
+                end
+            end
+            if player.heldItem.item == items.goldKey then
+                if chest.x == math.floor(player.x) and chest.y == math.floor(player.y) then
+                    player.heldItem = {item="empty", amount=nil}
+                    ending = 1
+                    running = false
+                    if mapData[math.floor(player.y)][math.floor(player.x-1)] == 0 then
+                        player.x = player.x - 1
+                        player.dir = "right"
+                    elseif mapData[math.floor(player.y)][math.floor(player.x+1)] == 0 then
+                        player.x = player.x + 1
+                        player.dir = "left"
+                    elseif mapData[math.floor(player.y-1)][math.floor(player.x)] == 0 then
+                        player.y = player.y - 1
+                        player.dir = "down"
+                    elseif mapData[math.floor(player.y+1)][math.floor(player.x)] == 0 then
+                        player.y = player.y + 1
+                        player.dir = "up"
+                    end
                 end
             end
             if player.heldItem.item == items.sword then
@@ -750,9 +787,12 @@ function love.draw()
 
     if ending == 1 then
         endingTimer = endingTimer + 1
-        if endingTimer > 60 then
+        if endingTimer == 60 then
             chest.state= "open"
             love.audio.stop()
+        end
+        if endingTimer > 60 then
+        love.audio.play(sound.glitch)
         end
         if endingTimer == 120 then
              wallTextures = {love.graphics.newImage("wallTextures/MissingTexture.png"),love.graphics.newImage("wallTextures/Test1.png")}
