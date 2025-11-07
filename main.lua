@@ -449,7 +449,7 @@ function love.update(dt)
         inputFlag.use = false
     end
 
-    -- obvious stuff
+    -- vvvmove this code snippet to the bottom of the update functionvvv
     local state = isMoving and "move" or "idle"
     local playerAnimation = "empty"
     if player.heldItem.item ~= "empty" then
@@ -463,11 +463,11 @@ function love.update(dt)
     monsters.zombie.animations.up:update(dt)
     monsters.zombie.animations.left:update(dt)
     monsters.zombie.animations.right:update(dt)
-
+    -- ^^^move this code snippet to the bottom of the update function^^^
 
     -- monster ai
 
-    local monsters_to_remove = {}
+    local monsters_to_remove = {}--move this line to the top of update function
 
     for x=1, #loaded_monsters do --this is general monster ai but only works for zombies
         local monster = loaded_monsters[x]
@@ -538,7 +538,7 @@ function love.update(dt)
         death_time = os.time()
     end
 
-    local indices_to_remove = {}
+    local indices_to_remove = {} -- move this line to the top of the update function
     --print(#player.bullets)
     for x=1, #player.bullets do
         local bullet = player.bullets[x]
