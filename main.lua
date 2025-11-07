@@ -12,9 +12,26 @@ running = true
 debugCounter = 0
 debugString = {}
 start_time = os.time()
-
+sound = {}
+sound.music = love.audio.newSource("sound/atria tenebrarum.mp3", "static")
+sound.rareEat = love.audio.newSource("sound/eating.wav", "static")
+sound.hit = love.audio.newSource("sound/enemyhit.mp3", "static")
+sound.footstep = {}
+sound.footstep[1] = love.audio.newSource("sound/footstep1.wav", "static")
+sound.footstep[2] = love.audio.newSource("sound/footstep2.wav", "static")
+sound.footstep[3] = love.audio.newSource("sound/footstep3.wav", "static")
+sound.footstep[4] = love.audio.newSource("sound/footstep4.wav", "static")
+sound.footstep[5] = love.audio.newSource("sound/footstep5.wav", "static")
+sound.eat = love.audio.newSource("sound/gamebite.mp3", "static")
+sound.gunshot = love.audio.newSource("sound/gunshot.mp3", "static")
+sound.itempickup = love.audio.newSource("sound/itempickup.mp3", "static")
+sound.swingsword = love.audio.newSource("sound/swingsword.mp3", "static")
+sound.torchextenguish = love.audio.newSource("sound/torchextenguish.mp3", "static")
+sound.torchignite = love.audio.newSource("sound/torchignite.mp3", "static")
+sound.torchloop = love.audio.newSource("sound/torchloop.mp3", "static")
 function love.load()
-    inputFlag={i1=false,i2=false,i3=false,mouse=false}
+    gunDelay = 0
+    inputFlag={i1=false,i2=false,i3=false,Use=false}
     -- touch variables
     Tid,Tx,Ty,Tp = 0,0,0,0
     -- loads in anim8 library
@@ -37,6 +54,9 @@ function love.load()
     items = {}
     items.coal = {id=1, texture=love.graphics.newImage("itemTextures/coal.png"), max_stack_size=8, playerAnim="empty"}
     items.gun = {id=2, texture=love.graphics.newImage("itemTextures/gun.png"), max_stack_size=1, playerAnim="gun"}
+    items.flag = {id=2, texture=love.graphics.newImage("itemTextures/flag.png"), max_stack_size=32, playerAnim="empty"}
+    items.bread = {id=2, texture=love.graphics.newImage("itemTextures/bread.png"), max_stack_size=8, playerAnim="empty"}
+    items.sword = {id=2, texture=love.graphics.newImage("itemTextures/sword.png"), max_stack_size=1, playerAnim="sword"}
 
     monsters = {}
     monsters.zombie = {texture=love.graphics.newImage("monsterTextures/zombie.png"), damage=1, speed=1/20, health=20}
@@ -105,7 +125,7 @@ function love.load()
 
     -- inventory
     player.inventory = {}
-    player.heldItem = {item=items.gun, amount=1}
+    player.heldItem = {item=items.coal, amount=1}
     player.inventory.contents = {}
     player.inventory.slot_number = 3
     player.inventory.slot_texture = love.graphics.newImage("uiTextures/inventory-slot.png")
@@ -137,7 +157,7 @@ function love.load()
                     else
                         spritesheetX = (directionIdx == 1 and '1-2') or (directionIdx == 2 and '5-6') or (directionIdx == 3 and '5-6') or (directionIdx == 4 and '1-2')
                     end
-                    local spritesheetY = (directionIdx == 1 and 1 + (animIdx)) or (directionIdx == 2 and 1 + (animIdx)) or (directionIdx == 3 and 12 + (animIdx)) or (directionIdx == 4 and 12 + (animIdx))
+                    local spritesheetY = (directionIdx == 1 and 1 + (animIdx) + (4-torchIdx)*2) or (directionIdx == 2 and 1 + (animIdx) + (4-torchIdx)*2) or (directionIdx == 3 and 12 + (animIdx) + (4-torchIdx)*2) or (directionIdx == 4 and 12 + (animIdx) + (4-torchIdx)*2)
                     player.animations[item.playerAnim]["torch"..torchIdx][animType][direction] = anim8.newAnimation( player.grid[item.playerAnim](spritesheetX , spritesheetY), .2)
                 end
             end
@@ -163,10 +183,13 @@ end
 
 
 function love.update(dt)
+    success = love.audio.play(sound.music)
     if not running then
         goto finish
     end
 
+    player.torchLevel = player.torchLevel - .001
+    player.torchLevel = math.max(player.torchLevel,1)
     -- kiwi you comment this cuz i have no [expletive] clue how it works - epic
     -- just setting the shadowData table to be all black so the shadow script can brighten it up later -SpaceKiwi
     lights = {}
@@ -182,7 +205,7 @@ function love.update(dt)
     table.insert(lights,{0,0,0})
     lights[1][1]=player.x
     lights[1][2]=player.y
-    lights[1][3]=.6
+    lights[1][3]=.2 + player.torchLevel*.1
 
 
     local isMoving = false
@@ -190,36 +213,36 @@ function love.update(dt)
 
     -- moving down and checking if you can
     if love.keyboard.isDown("s") or Ty > love.graphics.getHeight()*.9 and Tx > love.graphics.getWidth()*.5 then 
+           player.dir = "down"
         if get_tile(player.x, player.y + 1/8 + 0.45, mapData) == 0 then
            player.y = player.y + 1/16
-           player.dir = "down"
            isMoving = true
         end
     end
 
     -- moving up and checking if you can
     if love.keyboard.isDown("w") or Ty < love.graphics.getHeight()*.6 and Ty > love.graphics.getHeight()*.5 and Tx > love.graphics.getWidth()*.5 then
+            player.dir = "up"
         if get_tile(player.x, player.y - 1/8, mapData) == 0 then
             player.y = player.y - 1/16
-            player.dir = "up"
             isMoving = true
         end
     end
 
     -- moving right and checking if you can
     if love.keyboard.isDown("d") or Tx > love.graphics.getWidth()*.9 and Ty > love.graphics.getHeight()*.5 then 
+            player.dir = "right"
         if get_tile(player.x + 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x + 1/8, player.y, mapData) == 0 then
             player.x = player.x + 1/16
-            player.dir = "right"
             isMoving = true
         end
     end
 
     -- moving left and checking if you can
     if love.keyboard.isDown("a") or Tx < love.graphics.getWidth()*.6 and Tx > love.graphics.getWidth()*.5 and Ty > love.graphics.getHeight()*.5 then 
+            player.dir = "left"
         if get_tile(player.x - 1/8, player.y + 0.45, mapData) == 0 and get_tile(player.x - 1/8, player.y, mapData) == 0 then
             player.x = player.x - 1/16
-            player.dir = "left"
             isMoving = true
         end
     end
@@ -291,25 +314,37 @@ function love.update(dt)
         inputFlag.i3 = false
     end
 
-    if love.mouse.isDown(1) then
-        if inputFlag.mouse == false then
-            inputFlag.mouse = true
+    if love.keyboard.isDown("e") then
+        if inputFlag.use == false then
+            inputFlag.use = true
             if player.heldItem.item == items.gun then
-                for x = 1, #player.inventory.contents do
-                    if player.inventory.contents[x].item == items.bullet then
-                        player.inventory.contents[x].amount = player.inventory.contents[x].amount - 1
-                        if player.inventory.contents[x].amount == 0 then
-                            player.inventory.contents[x] = {item="empty", amount=nil}
+                if love.timer.getTime() - gunDelay > .8 then
+                    gunDelay = love.timer.getTime()
+                    for x = 1, #player.inventory.contents do
+                        if player.inventory.contents[x].item == items.bullet then
+                            player.inventory.contents[x].amount = player.inventory.contents[x].amount - 1
+                            if player.inventory.contents[x].amount == 0 then
+                                player.inventory.contents[x] = {item="empty", amount=nil}
+                            end
+                            table.insert(player.bullets, {direction=player.dir, x=player.x, y=player.y})
+                            love.audio.play(sound.gunshot)
+                            table.insert(lights,{player.x,player.y,1})
+                            goto continue
                         end
-                        table.insert(player.bullets, {direction=player.dir, x=player.x, y=player.y})
-                        goto continue
                     end
                 end
-            ::continue::
             end
+            if player.heldItem.item == items.coal then
+                player.torchLevel = 4
+                player.heldItem.item.amount = player.heldItem.item.amount - 1
+                if player.heldItem.item.amount == 0 then
+                    player.heldItem = {item="empty", amount=nil}
+                end
+            end
+        ::continue::
         end
     else
-        inputFlag.mouse = false
+        inputFlag.use = false
     end
 
     -- obvious stuff
@@ -327,7 +362,6 @@ function love.update(dt)
     monsters.zombie.animations.left:update(dt)
     monsters.zombie.animations.right:update(dt)
 
-    update_shadows()
 
     -- monster ai
 
@@ -340,7 +374,7 @@ function love.update(dt)
 
         local length = math.sqrt(dirX * dirX + dirY * dirY) -- bro doesn't know ^2
 
-        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.75 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.75 and (os.time() - monster.last_attack) >= 2 then
+        if math.abs((player.x+0.5) - (monster.x+0.5)) <= 0.5 and math.abs((player.y+0.5) - (monster.y+0.5)) <= 0.5 and (os.time() - monster.last_attack) >= 2 then
             player.health.current = player.health.current - monster.monster.damage
             monster.last_attack = os.time()
             damage_overlay = 5
@@ -434,6 +468,7 @@ function love.update(dt)
                 table.insert(indices_to_remove, x)
             end
         end
+        table.insert(lights,{bullet.x,bullet.y,.5})
 
         for y=1, #loaded_monsters do
             local monster = loaded_monsters[y]
@@ -441,6 +476,7 @@ function love.update(dt)
             if math.abs(bullet.x - (monster.x + 0.5)) < 0.5 and math.abs(bullet.y - (monster.y + 0.5)) < 0.5 then
                 monster.health = monster.health - 20
                 table.insert(indices_to_remove, x)
+                love.audio.play(sound.hit)
                 print("monster hit :O")
             end 
         end
@@ -450,6 +486,8 @@ function love.update(dt)
     for _, idx in ipairs(indices_to_remove) do
         table.remove(player.bullets, idx)
     end
+
+    update_shadows()
     ::finish::
 end
 
@@ -498,7 +536,6 @@ function love.draw()
     for _, bullet in ipairs(player.bullets) do
         love.graphics.draw(items.bullet.draw_texture, (bullet.x - camX) * 16 * scaleX, (bullet.y - camY) * 16 * scaleY, 0, scaleX, scaleY)
     end
-
     local currentSheet = player.spritesheets.empty
     if player.heldItem.item ~= "empty" then
         currentSheet = player.spritesheets[player.heldItem.item.playerAnim]
